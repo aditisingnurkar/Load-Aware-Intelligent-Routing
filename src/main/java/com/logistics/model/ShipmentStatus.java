@@ -1,4 +1,7 @@
 package com.logistics.model;
 
-public class ShipmentStatus {
+public enum ShipmentStatus {
+    ACTIVE,
+    DELIVERED,
+    FAILED
 }
