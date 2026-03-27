@@ -54,5 +54,6 @@ public class InputParser {
 
         reader.close();
         return graph;
+
     }
 }
