@@ -2,18 +2,18 @@ package com.logistics.model;
 
 public class DelayEvent {
     private final String hubId;
-    private final int initialDelay;
+    private final int delay;
 
-    public DelayEvent(String hubId, int initialDelay) {
+    public DelayEvent(String hubId, int delay) {
         this.hubId = hubId;
-        this.initialDelay = initialDelay;
+        this.delay = delay;
     }
 
-    public String getHubId()      { return hubId; }
-    public int getInitialDelay()  { return initialDelay; }
+    public String getHubId() { return hubId; }
+    public int getDelay()    { return delay; }
 
     @Override
     public String toString() {
-        return "DelayEvent{hub='" + hubId + "', delay=" + initialDelay + "}";
+        return "DelayEvent{hubId='" + hubId + "', delay=" + delay + "}";
     }
 }

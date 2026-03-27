@@ -8,52 +8,88 @@ import java.util.*;
 
 public class InputParser {
 
-    // This is the main method - give it the file path, it builds the entire graph
-    public static LogisticsGraph parse(String filePath) throws IOException {
-        LogisticsGraph graph = new LogisticsGraph();
-        BufferedReader reader = new BufferedReader(new FileReader(filePath));
-        String line;
+    private List<Hub> hubs;
+    private List<Edge> edges;
+    private List<Shipment> shipments;
+    private DelayEvent delayEvent;
 
-        while ((line = reader.readLine()) != null) {
-            line = line.trim();
+    public InputParser() {
+        this.hubs = new ArrayList<>();
+        this.edges = new ArrayList<>();
+        this.shipments = new ArrayList<>();
+    }
 
-            // Skip empty lines and comments
-            if (line.isEmpty() || line.startsWith("#")) continue;
+    // Master parse method — reads the full file and delegates to section parsers
+    public void parse(String filePath) throws IOException {
+        List<String> hubLines      = new ArrayList<>();
+        List<String> routeLines    = new ArrayList<>();
+        List<String> shipmentLines = new ArrayList<>();
+        List<String> delayLines    = new ArrayList<>();
 
-            String[] parts = line.split("\\s+");
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            String section = "";
 
-            if (parts[0].equals("HUB")) {
-                // HUB W1 WAREHOUSE → create a Hub object
-                String id = parts[1];
-                HubType type = HubType.valueOf(parts[2]);
-                graph.addHub(new Hub(id, type));
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
 
-            } else if (parts[0].equals("ROUTE")) {
-                // ROUTE W1 S1 4 → create an Edge object
-                String from = parts[1];
-                String to = parts[2];
-                int travelTime = Integer.parseInt(parts[3]);
-                graph.addEdge(new Edge(from, to, travelTime));
-
-            } else if (parts[0].equals("SHIPMENT")) {
-                // SHIPMENT SH1 W1 S1 R1 D1 DEL1 → create a Shipment object
-                String id = parts[1];
-                List<String> path = new ArrayList<>();
-                for (int i = 2; i < parts.length; i++) {
-                    path.add(parts[i]);
-                }
-                graph.addShipment(new Shipment(id, path));
-
-            } else if (parts[0].equals("DELAY")) {
-                // DELAY R2 10 → create a DelayEvent object
-                String hubId = parts[1];
-                int delay = Integer.parseInt(parts[2]);
-                graph.setDelayEvent(new DelayEvent(hubId, delay));
+                // Detect section by keyword
+                if (line.startsWith("HUB"))      hubLines.add(line);
+                else if (line.startsWith("ROUTE"))    routeLines.add(line);
+                else if (line.startsWith("SHIPMENT")) shipmentLines.add(line);
+                else if (line.startsWith("DELAY"))    delayLines.add(line);
             }
         }
 
-        reader.close();
-        return graph;
-
+        parseHubs(hubLines);
+        parseRoutes(routeLines);
+        parseShipments(shipmentLines);
+        parseDelayEvent(delayLines);
     }
+
+    // format: HUB <id> <type>
+    public void parseHubs(List<String> lines) {
+        for (String line : lines) {
+            String[] parts = line.split("\\s+");
+            String id = parts[1];
+            HubType type = HubType.valueOf(parts[2]);
+            hubs.add(new Hub(id, type));
+        }
+    }
+
+    // format: ROUTE <from> <to> <travelTime>
+    public void parseRoutes(List<String> lines) {
+        for (String line : lines) {
+            String[] parts = line.split("\\s+");
+            String from = parts[1];
+            String to   = parts[2];
+            int time    = Integer.parseInt(parts[3]);
+            edges.add(new Edge(from, to, time));
+        }
+    }
+
+    // format: SHIPMENT <id> <hub1> <hub2> ... <hubN>
+    public void parseShipments(List<String> lines) {
+        for (String line : lines) {
+            String[] parts = line.split("\\s+");
+            String id = parts[1];
+            List<String> path = new ArrayList<>(Arrays.asList(parts).subList(2, parts.length));
+            shipments.add(new Shipment(id, path));
+        }
+    }
+
+    // format: DELAY <hubId> <initialDelay>
+    public void parseDelayEvent(List<String> lines) {
+        if (!lines.isEmpty()) {
+            String[] parts = lines.get(0).split("\\s+");
+            delayEvent = new DelayEvent(parts[1], Integer.parseInt(parts[2]));
+        }
+    }
+
+    // Getters for SimulationEngine to consume
+    public List<Hub> getHubs()           { return hubs; }
+    public List<Edge> getEdges()         { return edges; }
+    public List<Shipment> getShipments() { return shipments; }
+    public DelayEvent getDelayEvent()    { return delayEvent; }
 }

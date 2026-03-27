@@ -1,50 +1,42 @@
 package com.logistics.graph;
 
-import com.logistics.model.*;
+import com.logistics.model.Edge;
+import com.logistics.model.Hub;
 
 import java.util.*;
 
 public class LogisticsGraph {
 
-    // The map — stores all roads between hubs
-    private final Map<String, List<Edge>> adjList = new HashMap<>();
+    private final Map<String, Hub> hubs;                  // hubId -> Hub
+    private final Map<String, List<Edge>> adjList;        // hubId -> outgoing edges
+    private final Map<String, Integer> hubLoadMap;        // hubId -> active shipment count
+    private final Set<String> isolatedSet;                // hubs removed from routing
 
-    // Stores all hub objects
-    private final Map<String, Hub> hubs = new HashMap<>();
+    public LogisticsGraph() {
+        this.hubs = new HashMap<>();
+        this.adjList = new HashMap<>();
+        this.hubLoadMap = new HashMap<>();
+        this.isolatedSet = new HashSet<>();
+    }
 
-    // Hubs that have been isolated (removed from routing)
-    private final Set<String> isolatedSet = new HashSet<>();
-
-    // All shipments in the system
-    private final List<Shipment> shipments = new ArrayList<>();
-
-    // The delay event (only one per simulation)
-    private DelayEvent delayEvent;
-
-    // ─────────────────────────────────────────
-    // PERSON A's methods — structural
-    // ─────────────────────────────────────────
+    // ─── STRUCTURAL METHODS (Person A) ───────────────────────────────────────
 
     public void addHub(Hub hub) {
         hubs.put(hub.getId(), hub);
         adjList.putIfAbsent(hub.getId(), new ArrayList<>());
+        hubLoadMap.putIfAbsent(hub.getId(), 0);
     }
 
     public void addEdge(Edge edge) {
         adjList.computeIfAbsent(edge.getFrom(), k -> new ArrayList<>()).add(edge);
     }
 
-    public void addShipment(Shipment shipment) {
-        shipments.add(shipment);
-    }
-
-    public void setDelayEvent(DelayEvent event) {
-        this.delayEvent = event;
-    }
-
-    public void isolateHub(String hubId) {
-        isolatedSet.add(hubId);
+    // Removes all incoming and outgoing edges for a hub — called during isolation
+    public void removeEdgesOf(String hubId) {
+        // Remove outgoing edges from this hub
         adjList.put(hubId, new ArrayList<>());
+
+        // Remove incoming edges from all other hubs
         for (List<Edge> edges : adjList.values()) {
             edges.removeIf(e -> e.getTo().equals(hubId));
         }
@@ -54,48 +46,56 @@ public class LogisticsGraph {
         return adjList.getOrDefault(hubId, new ArrayList<>());
     }
 
+    // Isolates hub: removes all edges + adds to isolated set
+    public void isolateHub(String hubId) {
+        removeEdgesOf(hubId);
+        isolatedSet.add(hubId);
+    }
+
     public boolean isIsolated(String hubId) {
         return isolatedSet.contains(hubId);
     }
 
-    public Set<String> getIsolatedSet()       { return isolatedSet; }
-    public Map<String, Hub> getHubs()         { return hubs; }
-    public List<Shipment> getShipments()      { return shipments; }
-    public DelayEvent getDelayEvent()         { return delayEvent; }
-    public Map<String, List<Edge>> getAdjList() { return adjList; }
+    public Set<String> getAllHubIds() {
+        return hubs.keySet();
+    }
 
-    // ─────────────────────────────────────────
-    // PERSON B's methods — load management
-    // ─────────────────────────────────────────
+    public Hub getHub(String hubId) {
+        return hubs.get(hubId);
+    }
 
-    // Add 1 shipment to a hub's load count
+    public Set<String> getIsolatedSet() {
+        return Collections.unmodifiableSet(isolatedSet);
+    }
+
+    // ─── LOAD METHODS (Person B's responsibility per schedule) ───────────────
+
     public void incrementLoad(String hubId) {
-        if (hubs.containsKey(hubId)) {
-            hubs.get(hubId).incrementLoad();
-        }
+        hubLoadMap.merge(hubId, 1, Integer::sum);
     }
 
-    // Remove 1 shipment from a hub's load count
     public void decrementLoad(String hubId) {
-        if (hubs.containsKey(hubId)) {
-            hubs.get(hubId).decrementLoad();
-        }
+        hubLoadMap.merge(hubId, -1, Integer::sum);
+        // Guard against negative load
+        if (hubLoadMap.get(hubId) < 0) hubLoadMap.put(hubId, 0);
     }
 
-    // Get how many shipments are currently at a hub
     public int getLoad(String hubId) {
-        if (hubs.containsKey(hubId)) {
-            return hubs.get(hubId).getLoad();
-        }
-        return 0;
+        return hubLoadMap.getOrDefault(hubId, 0);
     }
 
-    // Get load map for all hubs (used by OutputFormatter)
-    public Map<String, Integer> getLoadMap() {
-        Map<String, Integer> loadMap = new HashMap<>();
-        for (String id : hubs.keySet()) {
-            loadMap.put(id, hubs.get(id).getLoad());
+    // ─── UTILITY ─────────────────────────────────────────────────────────────
+
+    public Map<String, List<Edge>> getAdjList() {
+        return adjList;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("LogisticsGraph:\n");
+        for (String hubId : adjList.keySet()) {
+            sb.append("  ").append(hubId).append(" -> ").append(adjList.get(hubId)).append("\n");
         }
-        return loadMap;
+        return sb.toString();
     }
 }

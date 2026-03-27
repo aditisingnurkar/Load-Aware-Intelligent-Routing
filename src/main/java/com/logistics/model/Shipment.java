@@ -1,5 +1,6 @@
 package com.logistics.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Shipment {
@@ -10,29 +11,42 @@ public class Shipment {
 
     public Shipment(String id, List<String> path) {
         this.id = id;
-        this.path = path;
+        this.path = new ArrayList<>(path);
         this.currentIndex = 0;
         this.status = ShipmentStatus.ACTIVE;
     }
 
-    public String getId()               { return id; }
-    public List<String> getPath()       { return path; }
-    public void setPath(List<String> path) { this.path = path; }
-    public int getCurrentIndex()        { return currentIndex; }
-    public void setCurrentIndex(int i)  { this.currentIndex = i; }
-    public ShipmentStatus getStatus()   { return status; }
-    public void setStatus(ShipmentStatus status) { this.status = status; }
-
+    // Returns the hub the shipment is currently sitting at
     public String getCurrentHub() {
-        return path.get(currentIndex);
+        if (currentIndex < path.size()) return path.get(currentIndex);
+        return null;
     }
 
-    public String getDestination() {
-        return path.get(path.size() - 1);
+    // Moves shipment forward by one hub
+    public void advance() {
+        if (currentIndex < path.size() - 1) {
+            currentIndex++;
+        } else {
+            this.status = ShipmentStatus.DELIVERED;
+        }
+    }
+
+    public void setStatus(ShipmentStatus status) { this.status = status; }
+    public ShipmentStatus getStatus()            { return status; }
+    public List<String> getPath()                { return path; }
+    public String getId()                        { return id; }
+    public int getFailIndex()                    { return currentIndex; }
+
+    // Keeps already-travelled hubs, replaces everything from currentIndex onward
+    public void updatePath(List<String> newSegment) {
+        List<String> updated = new ArrayList<>(path.subList(0, currentIndex));
+        updated.addAll(newSegment);
+        this.path = updated;
     }
 
     @Override
     public String toString() {
-        return "Shipment{id='" + id + "', status=" + status + ", path=" + path + ", index=" + currentIndex + "}";
+        return "Shipment{id='" + id + "', status=" + status +
+                ", currentIndex=" + currentIndex + ", path=" + path + "}";
     }
 }
