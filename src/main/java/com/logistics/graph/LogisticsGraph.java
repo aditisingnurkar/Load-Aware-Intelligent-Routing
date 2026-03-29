@@ -60,14 +60,6 @@ public class LogisticsGraph {
         return hubs.keySet();
     }
 
-    public Hub getHub(String hubId) {
-        return hubs.get(hubId);
-    }
-
-    public Set<String> getIsolatedSet() {
-        return Collections.unmodifiableSet(isolatedSet);
-    }
-
     // ─── LOAD METHODS (Person B's responsibility per schedule) ───────────────
 
     public void incrementLoad(String hubId) {
