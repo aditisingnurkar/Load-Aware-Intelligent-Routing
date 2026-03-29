@@ -23,6 +23,8 @@ public class LAIRTest {
         setup(); testValidatePath();
         setup(); testInitialLoads();
         setup(); testAffectedShipments();
+        setup(); testUnionFind();
+        setup(); testDijkstra();
     }
 
     static void setup() {
@@ -149,5 +151,45 @@ public class LAIRTest {
         List<Shipment> affectedS2 = sm.getAffected("S2");
         System.out.println("Affected by S2 (expect 1):    " + affectedS2.size());
         System.out.println("Affected ID (expect SH2):     " + affectedS2.get(0).getId());
+    }
+
+    static void testUnionFind() {
+        System.out.println("\n=== UnionFind ===");
+        UnionFind uf = new UnionFind();
+        uf.build(g);
+        uf.union("W1", "S1");
+        uf.union("S1", "R1");
+        System.out.println("W1-R1 connected (expect true):  " + uf.connected("W1", "R1"));
+        System.out.println("W1-P1 connected (expect false): " + uf.connected("W1", "P1"));
+        System.out.println("W1-W1 connected (expect true):  " + uf.connected("W1", "W1"));
+        uf.union("R1", "P1");
+        System.out.println("W1-P1 after union (expect true):" + uf.connected("W1", "P1"));
+    }
+
+    static void testDijkstra() {
+        System.out.println("\n=== LoadAwareDijkstra ===");
+        LoadAwareDijkstra lad = new LoadAwareDijkstra();
+
+        // Normal path
+        List<String> path = lad.reroute(g, "W1", "P1", 1.0, 0.0);
+        System.out.println("W1->P1 path (expect [W1,S1,R1,D1,P1]): " + path);
+
+        // Isolated destination
+        g.isolateHub("P2");
+        List<String> isoPath = lad.reroute(g, "W1", "P2", 1.0, 1.0);
+        System.out.println("Isolated dest (expect []):              " + isoPath);
+
+        // alpha=0
+        List<String> alphaZero = lad.reroute(g, "W1", "P1", 0.0, 1.0);
+        System.out.println("alpha=0 path not empty (expect true):  " + !alphaZero.isEmpty());
+
+        // beta=0 — load on R1 should not affect path
+        g.incrementLoad("R1"); g.incrementLoad("R1"); g.incrementLoad("R1");
+        List<String> betaZero = lad.reroute(g, "W1", "P1", 1.0, 0.0);
+        System.out.println("beta=0 ignores load (expect true):     " + betaZero.contains("R1"));
+
+        // Single node
+        List<String> single = lad.reroute(g, "W1", "W1", 1.0, 1.0);
+        System.out.println("Single node (expect [W1]):             " + single);
     }
 }
