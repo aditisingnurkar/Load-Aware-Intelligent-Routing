@@ -193,5 +193,16 @@ public class LAIRTest {
         // Single node
         List<String> single = lad.reroute(g, "W1", "W1", 1.0, 1.0);
         System.out.println("Single node (expect [W1]):             " + single);
+
+        // Composite cost formula: alpha*travel + beta*load
+        // W1->S1 edge weight=10, S1 load=0 → cost = 2.0*10 + 3.0*0 = 20.0
+        double cost = lad.computeCost(new Edge("W1", "S1", 10), g, 2.0, 3.0);
+        System.out.println("Cost formula 2*10+3*0 (expect 20.0):   " + cost);
+
+        // Cycle guard — add back edge to create cycle, path should still be found
+        g.addEdge(new Edge("S1", "W1", 5));
+        List<String> cycleGuard = lad.reroute(g, "W1", "P1", 1.0, 0.0);
+        System.out.println("Cycle guard not empty (expect true):   " + !cycleGuard.isEmpty());
+        System.out.println("Cycle guard starts W1 (expect true):   " + cycleGuard.get(0).equals("W1"));
     }
 }
