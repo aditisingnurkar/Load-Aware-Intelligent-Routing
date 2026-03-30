@@ -7,6 +7,8 @@ import com.logistics.algorithm.UnionFind;
 import com.logistics.graph.LogisticsGraph;
 import com.logistics.model.*;
 import com.logistics.simulation.ShipmentManager;
+import com.logistics.simulation.SimulationEngine;
+import java.io.IOException;
 
 import java.util.*;
 
@@ -27,6 +29,7 @@ public class LAIRTest {
         setup(); testAffectedShipments();
         setup(); testUnionFind();
         setup(); testDijkstra();
+        setup(); testFullPipeline();
     }
 
     static void setup() {
@@ -204,5 +207,19 @@ public class LAIRTest {
         List<String> cycleGuard = lad.reroute(g, "W1", "P1", 1.0, 0.0);
         System.out.println("Cycle guard not empty (expect true):   " + !cycleGuard.isEmpty());
         System.out.println("Cycle guard starts W1 (expect true):   " + cycleGuard.get(0).equals("W1"));
+    }
+
+    static void testFullPipeline() {
+        System.out.println("\n=== Full Pipeline (Day 5 Integration) ===");
+        try {
+            SimulationEngine engine = new SimulationEngine(
+                    new LogisticsGraph(),
+                    new ShipmentManager()
+            );
+            engine.run("input/sample_network.txt");
+            System.out.println("Pipeline completed. Results: " + engine.getResults().size());
+        } catch (Exception e) {
+            System.out.println("Pipeline failed: " + e.getMessage());
+        }
     }
 }
