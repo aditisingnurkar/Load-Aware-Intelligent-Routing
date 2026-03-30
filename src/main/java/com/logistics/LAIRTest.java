@@ -2,6 +2,8 @@ package com.logistics;
 
 import com.logistics.algorithm.BFSDelayPropagator;
 import com.logistics.algorithm.BottleneckDetector;
+import com.logistics.algorithm.LoadAwareDijkstra;
+import com.logistics.algorithm.UnionFind;
 import com.logistics.graph.LogisticsGraph;
 import com.logistics.model.*;
 import com.logistics.simulation.ShipmentManager;
