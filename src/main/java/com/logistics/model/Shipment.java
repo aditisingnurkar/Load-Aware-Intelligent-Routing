@@ -16,13 +16,11 @@ public class Shipment {
         this.status = ShipmentStatus.ACTIVE;
     }
 
-    // Returns the hub the shipment is currently sitting at
     public String getCurrentHub() {
         if (currentIndex < path.size()) return path.get(currentIndex);
         return null;
     }
 
-    // Moves shipment forward by one hub
     public void advance() {
         if (currentIndex < path.size() - 1) {
             currentIndex++;
@@ -31,17 +29,27 @@ public class Shipment {
         }
     }
 
+    // returns index of a hub in the path, -1 if not found
+    public int indexOf(String hubId) {
+        return path.indexOf(hubId);
+    }
+
+    // advances currentIndex to a specific position
+    public void advanceTo(int index) {
+        if (index >= 0 && index < path.size())
+            this.currentIndex = index;
+    }
+
     public void setStatus(ShipmentStatus status) { this.status = status; }
     public ShipmentStatus getStatus()            { return status; }
     public List<String> getPath()                { return path; }
     public String getId()                        { return id; }
     public int getFailIndex()                    { return currentIndex; }
 
-    // Keeps already-travelled hubs, replaces everything from currentIndex onward
-    public void updatePath(List<String> newSegment) {
-        List<String> updated = new ArrayList<>(path.subList(0, currentIndex));
-        updated.addAll(newSegment);
-        this.path = updated;
+    // replaces entire path with the new full path, resets index to 0
+    public void updatePath(List<String> fullNewPath) {
+        this.path = new ArrayList<>(fullNewPath);
+        this.currentIndex = 0;
     }
 
     @Override

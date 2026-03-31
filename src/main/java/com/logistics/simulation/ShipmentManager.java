@@ -15,27 +15,22 @@ public class ShipmentManager {
         this.shipments = new ArrayList<>();
     }
 
-    // Adds a shipment after validating its path against the graph
     public void addShipment(Shipment shipment) {
         shipments.add(shipment);
     }
 
-    // Validates that every consecutive hub pair in the path has a real edge in the graph
     public boolean validatePath(LogisticsGraph graph, List<String> path) {
         for (int i = 0; i < path.size() - 1; i++) {
             String from = path.get(i);
             String to   = path.get(i + 1);
-
             boolean edgeExists = graph.getNeighbours(from)
                     .stream()
                     .anyMatch(e -> e.getTo().equals(to));
-
             if (!edgeExists) return false;
         }
         return true;
     }
 
-    // Called during Phase 1 — increments load for every hub in every shipment's path
     public void applyInitialLoads(LogisticsGraph graph) {
         for (Shipment shipment : shipments) {
             for (String hubId : shipment.getPath()) {
@@ -44,7 +39,6 @@ public class ShipmentManager {
         }
     }
 
-    // Returns all shipments whose path contains the isolated hub
     public List<Shipment> getAffected(String isolatedHubId) {
         List<Shipment> affected = new ArrayList<>();
         for (Shipment s : shipments) {
@@ -56,19 +50,27 @@ public class ShipmentManager {
         return affected;
     }
 
-    // Decrements load for all hubs from failIndex onward — called before rerouting
-    public void releaseLoads(LogisticsGraph graph, Shipment shipment) {
-        List<String> path = shipment.getPath();
-        int failIndex = shipment.getFailIndex();
+    // returns index of isolated hub in shipment's path
+    public int getIsolatedIndex(Shipment s, String isolatedHubId) {
+        return s.indexOf(isolatedHubId);
+    }
 
-        for (int i = failIndex; i < path.size(); i++) {
+    // releases loads from a specific index onward
+    public void releaseLoadsFrom(LogisticsGraph graph, Shipment shipment, int fromIndex) {
+        List<String> path = shipment.getPath();
+        for (int i = fromIndex; i < path.size(); i++) {
             graph.decrementLoad(path.get(i));
         }
     }
 
-    // Increments load for the new rerouted segment — called after rerouting succeeds
-    public void commitLoads(LogisticsGraph graph, Shipment shipment, List<String> newSegment) {
-        for (String hubId : newSegment) {
+    // kept for compatibility — releases from failIndex onward
+    public void releaseLoads(LogisticsGraph graph, Shipment shipment) {
+        releaseLoadsFrom(graph, shipment, shipment.getFailIndex());
+    }
+
+    // commits loads for a full new path
+    public void commitLoads(LogisticsGraph graph, Shipment shipment, List<String> newPath) {
+        for (String hubId : newPath) {
             graph.incrementLoad(hubId);
         }
     }

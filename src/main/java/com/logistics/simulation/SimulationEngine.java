@@ -3,6 +3,7 @@ package com.logistics.simulation;
 import com.logistics.algorithm.BFSDelayPropagator;
 import com.logistics.algorithm.BottleneckDetector;
 import com.logistics.algorithm.LoadAwareDijkstra;
+import com.logistics.algorithm.UnionFind;
 import com.logistics.graph.LogisticsGraph;
 import com.logistics.io.InputParser;
 import com.logistics.io.OutputFormatter;
@@ -10,6 +11,7 @@ import com.logistics.model.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -18,12 +20,12 @@ public class SimulationEngine {
     private final LogisticsGraph graph;
     private final ShipmentManager manager;
     private final List<RerouteResult> results;
+    private final Map<String, Double> originalCosts = new HashMap<>();
 
     private DelayEvent delayEvent;
     private String bottleneckId;
-    private double bottleneckScore;
+    private int bottleneckScore;
 
-    // alpha = travel weight, beta = load weight in Dijkstra cost formula
     private static final double ALPHA = 1.0;
     private static final double BETA  = 0.5;
 
@@ -33,66 +35,51 @@ public class SimulationEngine {
         this.results = new ArrayList<>();
     }
 
-    // ─── PHASE 1 ─────────────────────────────────────────────────────────────
-    // Build graph from parsed data + apply initial loads from all shipment paths
-
+    // Phase 1 — build graph + apply initial loads
     public void runPhase1(List<Hub> hubs, List<Edge> routes, List<Shipment> shipments) {
-        // Register all hubs
-        for (Hub hub : hubs) {
-            graph.addHub(hub);
-        }
-
-        // Register all routes
-        for (Edge edge : routes) {
-            graph.addEdge(edge);
-        }
-
-        // Register all shipments in manager
-        for (Shipment shipment : shipments) {
-            manager.addShipment(shipment);
-        }
-
-        // Stamp initial loads onto graph from every shipment path
+        for (Hub hub : hubs)         graph.addHub(hub);
+        for (Edge edge : routes)     graph.addEdge(edge);
+        for (Shipment s : shipments) manager.addShipment(s);
         manager.applyInitialLoads(graph);
 
         System.out.println("[Phase 1] Graph built: "
                 + hubs.size() + " hubs, "
                 + routes.size() + " routes, "
                 + shipments.size() + " shipments loaded.");
+
+        for (Shipment s : shipments) {
+            double cost = computePathCost(s.getPath(), 0, ALPHA, 0.0);
+            originalCosts.put(s.getId(), cost);
+        }
     }
 
-    // ─── PHASE 2 ─────────────────────────────────────────────────────────────
-    // Propagate delay via BFS, detect bottleneck, isolate it
-
+    // Phase 2 — propagate delay, detect bottleneck, isolate it
     public void runPhase2(DelayEvent event) {
         this.delayEvent = event;
 
-        // BFS delay propagation
-        Map<String, Integer> delayMap = new BFSDelayPropagator().propagate(graph, event);
+        Map<String, Integer> delayMap =
+                new BFSDelayPropagator().propagate(graph, event);
 
-        System.out.println("[Phase 2] Delay propagated from hub: " + event.getHubId()
-                + " (initial delay=" + event.getDelay() + ")");
+        System.out.println("[Phase 2] Delay propagated from hub: "
+                + event.getHubId() + " (initial delay=" + event.getDelay() + ")");
 
-        // Detect bottleneck hub
-        bottleneckId = new BottleneckDetector().detect(graph, delayMap, manager.getAll());
+        BottleneckDetector detector = new BottleneckDetector();
+        bottleneckId    = detector.detect(graph, delayMap, manager.getAll());
+        bottleneckScore = detector.getBottleneckScore();
 
-        // Use delay at bottleneck as its score for output
-        bottleneckScore = delayMap.getOrDefault(bottleneckId, 0);
+        System.out.println("[Phase 2] Bottleneck detected: "
+                + bottleneckId + " (score=" + bottleneckScore + ")");
 
-        System.out.println("[Phase 2] Bottleneck detected: " + bottleneckId
-                + " (score=" + bottleneckScore + ")");
-
-        // Isolate bottleneck — removes all edges to/from it
         graph.isolateHub(bottleneckId);
 
         System.out.println("[Phase 2] Hub isolated: " + bottleneckId);
     }
 
-    // ─── PHASE 3 ─────────────────────────────────────────────────────────────
-    // Reroute all shipments affected by the isolated bottleneck
-
+    // Phase 3 — reroute all affected shipments
     public void runPhase3(double alpha, double beta) {
         LoadAwareDijkstra dijkstra = new LoadAwareDijkstra();
+        UnionFind uf = new UnionFind();
+        uf.build(graph);
 
         List<Shipment> affected = manager.getAffected(bottleneckId);
 
@@ -100,74 +87,86 @@ public class SimulationEngine {
                 + " affected shipment(s) around: " + bottleneckId);
 
         for (Shipment shipment : affected) {
-            String currentHub = shipment.getCurrentHub();
-            String destination = shipment.getPath().get(shipment.getPath().size() - 1);
+            List<String> originalPath = new ArrayList<>(shipment.getPath());
+            String destination = originalPath.get(originalPath.size() - 1);
+            int isolatedIndex = manager.getIsolatedIndex(shipment, bottleneckId);
 
-            // Compute old cost from currentHub to destination along existing path
-            double oldCost = computePathCost(shipment.getPath(),
-                    shipment.getFailIndex(), alpha, beta);
+            // get pre-computed original cost (computed before any isolation)
+            double oldCost = originalCosts.getOrDefault(shipment.getId(), 0.0);
 
-            // Release loads for the segment we're replacing
-            manager.releaseLoads(graph, shipment);
+            // determine source and release loads based on case
+            String source;
+            if (shipment.getFailIndex() < isolatedIndex) {
+                // Case 1 — hasn't reached isolated hub, reroute from origin
+                // release entire original path since we're replacing it fully
+                source = originalPath.get(0);
+                manager.releaseLoadsFrom(graph, shipment, 0);
+            } else {
+                // Case 2 — at or past isolated hub, emergency reroute
+                // release only from isolated hub onward
+                source = isolatedIndex > 0
+                        ? originalPath.get(isolatedIndex - 1)
+                        : originalPath.get(0);
+                manager.releaseLoadsFrom(graph, shipment, isolatedIndex);
+            }
 
-            // Find new path from current position to destination
-            List<String> newSegment = dijkstra.reroute(graph, currentHub, destination,
-                    alpha, beta);
-
-            if (newSegment.isEmpty()) {
-                // No path found — mark shipment as failed
+            // pre-flight reachability check via Union-Find
+            if (!uf.connected(source, destination)) {
                 shipment.setStatus(ShipmentStatus.FAILED);
-                System.out.println("[Phase 3] FAILED to reroute: " + shipment.getId());
+                System.out.println("[Phase 3] FAILED (unreachable): "
+                        + shipment.getId());
                 continue;
             }
 
-            // Commit new loads for the new segment
-            manager.commitLoads(graph, shipment, newSegment);
+            // reroute
+            List<String> newPath = dijkstra.reroute(
+                    graph, shipment, bottleneckId, alpha, beta);
 
-            // Update shipment path
-            shipment.updatePath(newSegment);
+            if (newPath.isEmpty()) {
+                shipment.setStatus(ShipmentStatus.FAILED);
+                System.out.println("[Phase 3] FAILED to reroute: "
+                        + shipment.getId());
+                continue;
+            }
 
-            double newCost = computePathCost(newSegment, 0, alpha, beta);
+            // commit loads for full new path (old loads fully released above)
+            manager.commitLoads(graph, shipment, newPath);
 
-            results.add(new RerouteResult(shipment.getId(), newSegment, oldCost, newCost));
+            shipment.updatePath(newPath);
+
+            double newCost = computePathCost(newPath, 0, alpha, 0.0);
+            results.add(new RerouteResult(
+                    shipment.getId(), originalPath, newPath, oldCost, newCost));
 
             System.out.println("[Phase 3] Rerouted " + shipment.getId()
-                    + ": " + String.join(" -> ", newSegment)
+                    + ": " + String.join(" -> ", newPath)
                     + " (old=" + String.format("%.1f", oldCost)
                     + ", new=" + String.format("%.1f", newCost) + ")");
         }
     }
 
-    // ─── RUN ─────────────────────────────────────────────────────────────────
-    // Full pipeline: parse input → phase1 → phase2 → phase3 → print output
-
+    // Full pipeline
     public void run(String inputFile) throws IOException {
         OutputFormatter formatter = new OutputFormatter();
         formatter.printHeader();
 
-        // Parse input file
         InputParser parser = new InputParser();
         parser.parse(inputFile);
 
-        // Phase 1 — build graph + load shipments
         runPhase1(parser.getHubs(), parser.getEdges(), parser.getShipments());
 
-        // Phase 2 — propagate delay + detect + isolate bottleneck
         if (parser.getDelayEvent() != null) {
             runPhase2(parser.getDelayEvent());
         } else {
-            System.out.println("[Phase 2] No delay event found in input.");
+            System.out.println("[Phase 2] No delay event found.");
             return;
         }
 
-        // Phase 3 — reroute affected shipments
         runPhase3(ALPHA, BETA);
 
-        // Output
         formatter.printBottleneck(bottleneckId, bottleneckScore);
         formatter.printRouteComparison(results);
 
-        // Compute total delay before/after across all results
         double totalBefore = results.stream().mapToDouble(RerouteResult::getOldCost).sum();
         double totalAfter  = results.stream().mapToDouble(RerouteResult::getNewCost).sum();
         formatter.printDelayReduction(totalBefore, totalAfter);
@@ -175,29 +174,19 @@ public class SimulationEngine {
         formatter.printLoadMap(graph);
     }
 
-    // ─── RESULTS ─────────────────────────────────────────────────────────────
+    public List<RerouteResult> getResults() { return results; }
 
-    public List<RerouteResult> getResults() {
-        return results;
-    }
-
-    // ─── HELPERS ─────────────────────────────────────────────────────────────
-
-    // Computes composite cost for a path segment starting at fromIndex
     private double computePathCost(List<String> path, int fromIndex,
                                    double alpha, double beta) {
         double cost = 0.0;
         for (int i = fromIndex; i < path.size() - 1; i++) {
             String from = path.get(i);
             String to   = path.get(i + 1);
-
-            // Find the edge travel time
             int travelTime = graph.getNeighbours(from).stream()
                     .filter(e -> e.getTo().equals(to))
-                    .mapToInt(e -> e.getWeight())
+                    .mapToInt(Edge::getWeight)
                     .findFirst()
                     .orElse(0);
-
             cost += alpha * travelTime + beta * graph.getLoad(to);
         }
         return cost;
