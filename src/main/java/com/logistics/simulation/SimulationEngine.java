@@ -191,4 +191,6 @@ public class SimulationEngine {
         }
         return cost;
     }
+    public String getBottleneckId()  { return bottleneckId; }
+    public int getBottleneckScore()  { return bottleneckScore; }
 }
