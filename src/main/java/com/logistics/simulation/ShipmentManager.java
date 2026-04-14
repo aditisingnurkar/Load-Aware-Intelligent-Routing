@@ -19,63 +19,85 @@ public class ShipmentManager {
         shipments.add(shipment);
     }
 
-    public boolean validatePath(LogisticsGraph graph, List<String> path) {
-        for (int i = 0; i < path.size() - 1; i++) {
-            String from = path.get(i);
-            String to   = path.get(i + 1);
-            boolean edgeExists = graph.getNeighbours(from)
-                    .stream()
-                    .anyMatch(e -> e.getTo().equals(to));
-            if (!edgeExists) return false;
-        }
-        return true;
+    public List<Shipment> getAll() {
+        return shipments;
     }
 
+    // ─── INITIAL LOAD ─────────────────────────────
+
+    /**
+     * FIX (Bug #1): Only increment load for hubs that actually exist in the
+     * graph's adjacency list. Phantom hubs (e.g. SH4's S3/R3) referenced in
+     * shipment paths are skipped with a warning instead of creating ghost
+     * entries in hubLoadMap that corrupt Dijkstra neighbour lookups.
+     */
     public void applyInitialLoads(LogisticsGraph graph) {
         for (Shipment shipment : shipments) {
             for (String hubId : shipment.getPath()) {
+                if (!graph.hubExists(hubId)) {
+                    System.out.println("[WARN] applyInitialLoads: hub '"
+                            + hubId + "' in shipment " + shipment.getId()
+                            + " does not exist in graph — skipped.");
+                    continue;
+                }
                 graph.incrementLoad(hubId);
             }
         }
     }
 
+    // ─── AFFECTED SHIPMENTS ─────────────────────────────
+
     public List<Shipment> getAffected(String isolatedHubId) {
         List<Shipment> affected = new ArrayList<>();
         for (Shipment s : shipments) {
-            if (s.getStatus() == ShipmentStatus.ACTIVE &&
-                    s.getPath().contains(isolatedHubId)) {
+            if (s.getStatus() == ShipmentStatus.ACTIVE
+                    && s.getPath().contains(isolatedHubId)) {
                 affected.add(s);
             }
         }
         return affected;
     }
 
-    // returns index of isolated hub in shipment's path
-    public int getIsolatedIndex(Shipment s, String isolatedHubId) {
-        return s.indexOf(isolatedHubId);
-    }
+    // ─── LOAD HANDLING (POSITION-AWARE) ─────────────────────────────
 
-    // releases loads from a specific index onward
-    public void releaseLoadsFrom(LogisticsGraph graph, Shipment shipment, int fromIndex) {
+    /**
+     * FIX (Bug #3): The old code silently fell back to index 0 when
+     * currentHub wasn't found in the path, releasing loads for already-
+     * traversed hubs and potentially making load counts go negative.
+     *
+     * New behaviour:
+     *   1. If currentHub is not in the path, log a clear warning and release
+     *      NOTHING (the load accounting is already wrong; releasing from 0
+     *      makes it worse).
+     *   2. Also skip any hub in the release range that doesn't exist in the
+     *      graph (guards against phantom hubs from Bug #1 leaking through).
+     */
+    public void releaseLoadsFromCurrent(LogisticsGraph graph, Shipment shipment) {
+        String current = shipment.getCurrentHub();
         List<String> path = shipment.getPath();
-        for (int i = fromIndex; i < path.size(); i++) {
-            graph.decrementLoad(path.get(i));
+
+        int start = path.indexOf(current);
+        if (start < 0) {
+            System.out.println("[WARN] releaseLoadsFromCurrent: currentHub '"
+                    + current + "' not found in path for shipment "
+                    + shipment.getId() + " — no loads released to avoid "
+                    + "negative accounting.");
+            return;   // ← was: start = 0  (the silent bug)
+        }
+
+        for (int i = start; i < path.size(); i++) {
+            String hubId = path.get(i);
+            if (!graph.hubExists(hubId)) {
+                // Phantom hub — never had a load added, skip silently.
+                continue;
+            }
+            graph.decrementLoad(hubId);
         }
     }
 
-    // kept for compatibility — releases from failIndex onward
-    public void releaseLoads(LogisticsGraph graph, Shipment shipment) {
-        releaseLoadsFrom(graph, shipment, shipment.getFailIndex());
-    }
-
-    // commits loads for a full new path
-    public void commitLoads(LogisticsGraph graph, Shipment shipment, List<String> newPath) {
+    public void commitLoads(LogisticsGraph graph, List<String> newPath) {
         for (String hubId : newPath) {
             graph.incrementLoad(hubId);
         }
-    }
-
-    public List<Shipment> getAll() {
-        return shipments;
     }
 }

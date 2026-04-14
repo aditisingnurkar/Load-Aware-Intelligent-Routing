@@ -4,57 +4,69 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Shipment {
+
     private final String id;
-    private List<String> path;
-    private int currentIndex;
+    private List<String> path;          // planned or rerouted path
+    private String currentHub;          // REAL position (independent of path)
     private ShipmentStatus status;
 
     public Shipment(String id, List<String> path) {
         this.id = id;
         this.path = new ArrayList<>(path);
-        this.currentIndex = 0;
+        this.currentHub = path.isEmpty() ? null : path.get(0);
         this.status = ShipmentStatus.ACTIVE;
     }
 
+    // ─── CURRENT POSITION ─────────────────────────────
+
     public String getCurrentHub() {
-        if (currentIndex < path.size()) return path.get(currentIndex);
-        return null;
+        return currentHub;
     }
 
-    public void advance() {
-        if (currentIndex < path.size() - 1) {
-            currentIndex++;
-        } else {
-            this.status = ShipmentStatus.DELIVERED;
-        }
+    public void setCurrentHub(String hubId) {
+        this.currentHub = hubId;
     }
 
-    // returns index of a hub in the path, -1 if not found
-    public int indexOf(String hubId) {
-        return path.indexOf(hubId);
+    // ─── PATH MANAGEMENT ─────────────────────────────
+
+    public List<String> getPath() {
+        return path;
     }
 
-    // advances currentIndex to a specific position
-    public void advanceTo(int index) {
-        if (index >= 0 && index < path.size())
-            this.currentIndex = index;
+    public void updatePath(List<String> newPath) {
+        this.path = new ArrayList<>(newPath);
+        // DO NOT reset currentHub
     }
 
-    public void setStatus(ShipmentStatus status) { this.status = status; }
-    public ShipmentStatus getStatus()            { return status; }
-    public List<String> getPath()                { return path; }
-    public String getId()                        { return id; }
-    public int getFailIndex()                    { return currentIndex; }
+    public String getDestination() {
+        if (path == null || path.isEmpty()) return null;
+        return path.get(path.size() - 1);
+    }
 
-    // replaces entire path with the new full path, resets index to 0
-    public void updatePath(List<String> fullNewPath) {
-        this.path = new ArrayList<>(fullNewPath);
-        this.currentIndex = 0;
+    public String getOrigin() {
+        if (path == null || path.isEmpty()) return null;
+        return path.get(0);
+    }
+
+    // ─── STATUS ─────────────────────────────
+
+    public void setStatus(ShipmentStatus status) {
+        this.status = status;
+    }
+
+    public ShipmentStatus getStatus() {
+        return status;
+    }
+
+    public String getId() {
+        return id;
     }
 
     @Override
     public String toString() {
-        return "Shipment{id='" + id + "', status=" + status +
-                ", currentIndex=" + currentIndex + ", path=" + path + "}";
+        return "Shipment{id='" + id +
+                "', currentHub='" + currentHub +
+                "', status=" + status +
+                ", path=" + path + "}";
     }
 }

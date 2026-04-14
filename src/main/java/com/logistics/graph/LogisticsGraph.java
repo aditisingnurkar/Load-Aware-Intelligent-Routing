@@ -7,19 +7,19 @@ import java.util.*;
 
 public class LogisticsGraph {
 
-    private final Map<String, Hub> hubs;                  // hubId -> Hub
-    private final Map<String, List<Edge>> adjList;        // hubId -> outgoing edges
-    private final Map<String, Integer> hubLoadMap;        // hubId -> active shipment count
-    private final Set<String> isolatedSet;                // hubs removed from routing
+    private final Map<String, Hub>        hubs;         // hubId -> Hub
+    private final Map<String, List<Edge>> adjList;      // hubId -> outgoing edges
+    private final Map<String, Integer>    hubLoadMap;   // hubId -> active shipment count
+    private final Set<String>             isolatedSet;  // hubs removed from routing
 
     public LogisticsGraph() {
-        this.hubs = new HashMap<>();
-        this.adjList = new HashMap<>();
-        this.hubLoadMap = new HashMap<>();
+        this.hubs        = new HashMap<>();
+        this.adjList     = new HashMap<>();
+        this.hubLoadMap  = new HashMap<>();
         this.isolatedSet = new HashSet<>();
     }
 
-    // ─── STRUCTURAL METHODS (Person A) ───────────────────────────────────────
+    // ─── STRUCTURAL METHODS ───────────────────────────────────────────────────
 
     public void addHub(Hub hub) {
         hubs.put(hub.getId(), hub);
@@ -31,12 +31,19 @@ public class LogisticsGraph {
         adjList.computeIfAbsent(edge.getFrom(), k -> new ArrayList<>()).add(edge);
     }
 
+    /**
+     * FIX (Bug #1 / #3 support): Returns true only if the hub was registered
+     * via addHub().  Hubs referenced in shipment paths that were never declared
+     * in the HUB section return false, letting callers skip phantom entries
+     * instead of silently inserting them into hubLoadMap.
+     */
+    public boolean hubExists(String hubId) {
+        return hubs.containsKey(hubId);
+    }
+
     // Removes all incoming and outgoing edges for a hub — called during isolation
     public void removeEdgesOf(String hubId) {
-        // Remove outgoing edges from this hub
         adjList.put(hubId, new ArrayList<>());
-
-        // Remove incoming edges from all other hubs
         for (List<Edge> edges : adjList.values()) {
             edges.removeIf(e -> e.getTo().equals(hubId));
         }
@@ -60,7 +67,7 @@ public class LogisticsGraph {
         return hubs.keySet();
     }
 
-    // ─── LOAD METHODS (Person B's responsibility per schedule) ───────────────
+    // ─── LOAD METHODS ─────────────────────────────────────────────────────────
 
     public void incrementLoad(String hubId) {
         hubLoadMap.merge(hubId, 1, Integer::sum);
@@ -76,7 +83,7 @@ public class LogisticsGraph {
         return hubLoadMap.getOrDefault(hubId, 0);
     }
 
-    // ─── UTILITY ─────────────────────────────────────────────────────────────
+    // ─── UTILITY ──────────────────────────────────────────────────────────────
 
     public Map<String, List<Edge>> getAdjList() {
         return adjList;
@@ -86,7 +93,8 @@ public class LogisticsGraph {
     public String toString() {
         StringBuilder sb = new StringBuilder("LogisticsGraph:\n");
         for (String hubId : adjList.keySet()) {
-            sb.append("  ").append(hubId).append(" -> ").append(adjList.get(hubId)).append("\n");
+            sb.append("  ").append(hubId)
+                    .append(" -> ").append(adjList.get(hubId)).append("\n");
         }
         return sb.toString();
     }

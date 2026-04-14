@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>LAIR — Logistics Autonomous Intelligent Rerouting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        :root{
+          --bg:#050810;
+          --bg2:#090d1a;
+          --bg3:#0e1428;
+          --panel:#111827;
+          --panel2:#1a2236;
+          --border:#1e2d4a;
+          --border2:#2a3d5e;
+          --text:#e2e8f4;
+          --muted:#6b7fa3;
+          --dim:#3a4a6a;
+          --accent:#3b82f6;
+          --accent2:#60a5fa;
+          --warn:#f59e0b;
+          --warn2:#fbbf24;
+          --danger:#ef4444;
+          --danger2:#f87171;
+          --success:#10b981;
+          --success2:#34d399;
+          --purple:#8b5cf6;
+          --purple2:#a78bfa;
+          --cyan:#06b6d4;
+          --cyan2:#22d3ee;
+          --pink:#ec4899;
+          --pink2:#f472b6;
+          --mono:'Space Mono',monospace;
+          --sans:'DM Sans',sans-serif;
+
+          /* shipment colors */
+          --sh1:#3b82f6;
+          --sh2:#10b981;
+          --sh3:#f59e0b;
+          --sh4:#8b5cf6;
+          --sh5:#ef4444;
+        }
+
+        body{
+          font-family:var(--sans);
+          background:var(--bg);
+          color:var(--text);
+          min-height:100vh;
+          overflow-x:hidden;
+        }
+
+        /* ───── HEADER ───── */
+        header{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          padding:14px 32px;
+          background:var(--bg2);
+          border-bottom:1px solid var(--border);
+          position:sticky;top:0;z-index:100;
+        }
+        .logo{
+          font-family:var(--mono);
+          font-size:18px;
+          font-weight:700;
+          letter-spacing:0.15em;
+          color:var(--accent2);
+        }
+        .logo span{color:var(--muted);font-weight:400;font-size:11px;letter-spacing:0.05em;display:block;margin-top:2px}
+        .header-right{display:flex;align-items:center;gap:16px}
+        .phase-indicator{
+          font-family:var(--mono);
+          font-size:11px;
+          color:var(--muted);
+          letter-spacing:0.08em;
+        }
+        .phase-indicator strong{color:var(--accent2);font-size:13px}
+
+        /* ───── MAIN LAYOUT ───── */
+        main{
+          display:grid;
+          grid-template-columns:1fr 340px;
+          grid-template-rows:auto 1fr auto;
+          gap:0;
+          height:calc(100vh - 57px);
+        }
+
+        /* ───── CANVAS AREA ───── */
+        .canvas-wrap{
+          grid-column:1;
+          grid-row:1/3;
+          position:relative;
+          background:var(--bg);
+          overflow:hidden;
+        }
+
+        #network-svg{
+          width:100%;
+          height:100%;
+          display:block;
+        }
+
+        /* ───── STEP TIMELINE ───── */
+        .timeline{
+          grid-column:1;
+          grid-row:3;
+          padding:12px 24px;
+          background:var(--bg2);
+          border-top:1px solid var(--border);
+          display:flex;
+          align-items:center;
+          gap:0;
+        }
+
+        .step-btn{
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:6px;
+          flex:1;
+          position:relative;
+          cursor:pointer;
+          padding:8px 4px;
+          border-radius:8px;
+          transition:background 0.2s;
+          border:none;
+          background:transparent;
+          color:inherit;
+          font-family:var(--sans);
+        }
+        .step-btn:hover{background:var(--panel)}
+        .step-btn.active .step-dot{background:var(--accent);box-shadow:0 0 12px var(--accent);border-color:var(--accent)}
+        .step-btn.done .step-dot{background:var(--success);border-color:var(--success)}
+        .step-btn.active .step-label{color:var(--accent2);font-weight:600}
+        .step-btn.done .step-label{color:var(--success2)}
+
+        .step-dot{
+          width:28px;height:28px;
+          border-radius:50%;
+          border:2px solid var(--border2);
+          background:var(--panel);
+          display:flex;align-items:center;justify-content:center;
+          font-family:var(--mono);font-size:11px;color:var(--muted);
+          transition:all 0.3s;
+        }
+        .step-label{font-size:11px;color:var(--muted);text-align:center;line-height:1.3;transition:color 0.3s}
+        .step-connector{
+          height:2px;
+          flex:0.5;
+          background:var(--border);
+          margin-bottom:22px;
+          transition:background 0.4s;
+        }
+        .step-connector.done{background:var(--success)}
+
+        /* ───── RIGHT PANEL ───── */
+        .right-panel{
+          grid-column:2;
+          grid-row:1/4;
+          border-left:1px solid var(--border);
+          display:flex;
+          flex-direction:column;
+          overflow:hidden;
+          background:var(--bg2);
+        }
+
+        .panel-header{
+          padding:16px 20px 12px;
+          border-bottom:1px solid var(--border);
+        }
+        .panel-title{
+          font-family:var(--mono);
+          font-size:11px;
+          letter-spacing:0.12em;
+          color:var(--muted);
+          text-transform:uppercase;
+        }
+        .panel-subtitle{
+          font-size:14px;
+          font-weight:500;
+          color:var(--text);
+          margin-top:4px;
+        }
+
+        .log-feed{
+          flex:1;
+          overflow-y:auto;
+          padding:12px 0;
+          font-family:var(--mono);
+          font-size:11.5px;
+          line-height:1.7;
+        }
+        .log-feed::-webkit-scrollbar{width:4px}
+        .log-feed::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+        .log-entry{
+          padding:5px 20px;
+          border-left:2px solid transparent;
+          transition:background 0.15s;
+          animation:slideIn 0.3s ease;
+        }
+        @keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+
+        .log-entry:hover{background:var(--panel)}
+        .log-entry.info{border-color:var(--accent);color:var(--muted)}
+        .log-entry.info .log-tag{color:var(--accent2)}
+        .log-entry.warn{border-color:var(--warn);background:rgba(245,158,11,0.04)}
+        .log-entry.warn .log-tag{color:var(--warn2)}
+        .log-entry.danger{border-color:var(--danger);background:rgba(239,68,68,0.05)}
+        .log-entry.danger .log-tag{color:var(--danger2)}
+        .log-entry.success{border-color:var(--success);background:rgba(16,185,129,0.04)}
+        .log-entry.success .log-tag{color:var(--success2)}
+        .log-entry.phase{border-color:var(--purple);background:rgba(139,92,246,0.06);padding:8px 20px}
+        .log-entry.phase .log-tag{color:var(--purple2);font-size:12px}
+
+        .log-tag{display:inline-block;margin-right:6px;font-size:10px;letter-spacing:0.05em}
+        .log-time{color:var(--dim);font-size:10px;margin-right:6px}
+
+        /* ───── SHIPMENT STATUS ───── */
+        .shipment-panel{
+          border-top:1px solid var(--border);
+          padding:12px 20px;
+          max-height:220px;
+          overflow-y:auto;
+        }
+        .shipment-panel::-webkit-scrollbar{width:4px}
+        .shipment-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+        .sp-title{
+          font-family:var(--mono);
+          font-size:10px;
+          letter-spacing:0.12em;
+          color:var(--muted);
+          text-transform:uppercase;
+          margin-bottom:8px;
+        }
+        .shipment-row{
+          display:flex;
+          align-items:center;
+          gap:10px;
+          padding:6px 0;
+          border-bottom:1px solid var(--border);
+          font-size:12px;
+          transition:all 0.3s;
+        }
+        .shipment-row:last-child{border-bottom:none}
+        .sh-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .sh-id{font-family:var(--mono);font-weight:700;color:var(--text);width:30px;flex-shrink:0}
+        .sh-path{color:var(--muted);flex:1;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .sh-status{
+          font-size:9.5px;
+          font-family:var(--mono);
+          padding:2px 6px;
+          border-radius:3px;
+          flex-shrink:0;
+        }
+        .sh-status.active{background:rgba(59,130,246,0.15);color:var(--accent2)}
+        .sh-status.rerouted{background:rgba(16,185,129,0.15);color:var(--success2)}
+        .sh-status.failed{background:rgba(239,68,68,0.15);color:var(--danger2)}
+        .sh-status.delivered{background:rgba(107,127,163,0.15);color:var(--muted)}
+        .sh-cost{font-family:var(--mono);font-size:10px;color:var(--dim);flex-shrink:0}
+
+        /* ───── RESULTS PANEL ───── */
+        .results-panel{
+          display:none;
+          border-top:1px solid var(--border);
+          padding:14px 20px;
+          background:var(--bg3);
+        }
+        .results-panel.show{display:block}
+        .results-title{
+          font-family:var(--mono);font-size:10px;letter-spacing:0.1em;
+          color:var(--muted);text-transform:uppercase;margin-bottom:10px;
+        }
+        .metric-row{display:flex;gap:8px;margin-bottom:8px}
+        .metric{
+          flex:1;background:var(--panel);border-radius:6px;
+          padding:8px 10px;border:1px solid var(--border);
+        }
+        .metric-label{font-size:10px;color:var(--muted);margin-bottom:3px}
+        .metric-value{font-family:var(--mono);font-size:16px;font-weight:700}
+        .metric-value.good{color:var(--success2)}
+        .metric-value.bad{color:var(--danger2)}
+        .metric-value.warn{color:var(--warn2)}
+        .reroute-row{
+          display:flex;align-items:center;gap:8px;
+          padding:5px 0;border-bottom:1px solid var(--border);
+          font-size:11px;
+        }
+        .reroute-row:last-child{border-bottom:none}
+        .rr-id{font-family:var(--mono);font-weight:700;width:28px;flex-shrink:0}
+        .rr-arrow{color:var(--dim)}
+        .rr-old{color:var(--danger2);text-decoration:line-through;font-family:var(--mono);font-size:10px}
+        .rr-new{color:var(--success2);font-family:var(--mono);font-size:10px;font-weight:700}
+        .rr-pct{font-size:10px;color:var(--muted);margin-left:auto}
+
+        /* ───── CONTROL BUTTONS ───── */
+        .ctrl-bar{
+          padding:12px 20px;
+          border-top:1px solid var(--border);
+          display:flex;
+          gap:10px;
+        }
+        .btn{
+          font-family:var(--mono);
+          font-size:11px;
+          letter-spacing:0.05em;
+          padding:8px 16px;
+          border-radius:6px;
+          border:1px solid var(--border2);
+          background:var(--panel);
+          color:var(--text);
+          cursor:pointer;
+          transition:all 0.2s;
+          flex:1;
+        }
+        .btn:hover{background:var(--panel2);border-color:var(--accent);color:var(--accent2)}
+        .btn.primary{
+          background:var(--accent);
+          border-color:var(--accent);
+          color:#fff;
+        }
+        .btn.primary:hover{background:var(--accent2)}
+        .btn:disabled{opacity:0.4;cursor:not-allowed}
+
+        /* ───── CANVAS ELEMENTS ───── */
+        .hub-label{
+          font-family:var(--mono);
+          font-size:12px;
+          font-weight:700;
+          pointer-events:none;
+          user-select:none;
+        }
+        .edge-weight{
+          font-family:var(--mono);
+          font-size:9px;
+          fill:var(--dim);
+          pointer-events:none;
+        }
+
+        /* ───── LEGEND ───── */
+        .legend{
+          position:absolute;
+          bottom:20px;left:20px;
+          background:rgba(9,13,26,0.92);
+          border:1px solid var(--border);
+          border-radius:8px;
+          padding:10px 14px;
+          font-size:11px;
+          backdrop-filter:blur(8px);
+        }
+        .legend-title{
+          font-family:var(--mono);
+          font-size:9px;
+          letter-spacing:0.1em;
+          color:var(--muted);
+          text-transform:uppercase;
+          margin-bottom:8px;
+        }
+        .legend-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--muted)}
+        .legend-line{height:2px;width:24px;border-radius:1px}
+        .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+        /* ───── BOTTLENECK PULSE ───── */
+        @keyframes bpulse{
+          0%,100%{r:22;stroke-opacity:0.8}
+          50%{r:28;stroke-opacity:0.2}
+        }
+        .bottleneck-ring{animation:bpulse 1.2s ease-in-out infinite}
+
+        /* ───── SHIPMENT TRAIL ───── */
+        @keyframes pathDraw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
+        .path-anim{
+          stroke-dasharray:1000;
+          animation:pathDraw 1.5s ease forwards;
+        }
+
+        /* ───── TOOLTIP ───── */
+        .tooltip{
+          position:absolute;
+          background:var(--panel2);
+          border:1px solid var(--border2);
+          border-radius:6px;
+          padding:8px 12px;
+          font-size:12px;
+          color:var(--text);
+          pointer-events:none;
+          opacity:0;
+          transition:opacity 0.15s;
+          z-index:50;
+          min-width:160px;
+          font-family:var(--mono);
+        }
+        .tooltip.show{opacity:1}
+
+        /* ───── HUB TYPE BADGE ───── */
+        .hub-type{
+          font-family:var(--mono);
+          font-size:9px;
+          letter-spacing:0.06em;
+        }
+
+        /* ───── OVERLAY CARDS ───── */
+        .info-card{
+          position:absolute;
+          background:rgba(9,13,26,0.96);
+          border:1px solid var(--warn);
+          border-radius:8px;
+          padding:10px 14px;
+          font-size:11.5px;
+          color:var(--text);
+          backdrop-filter:blur(8px);
+          animation:slideIn 0.3s ease;
+          pointer-events:none;
+          z-index:20;
+        }
+        .info-card.bottleneck{border-color:var(--danger)}
+        .ic-title{font-family:var(--mono);font-size:10px;color:var(--warn2);letter-spacing:0.08em;margin-bottom:4px}
+        .ic-title.danger{color:var(--danger2)}
+        .ic-value{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--warn)}
+        .ic-value.danger{color:var(--danger2)}
+
+        /* ───── PHASE BADGE ───── */
+        .phase-badge{
+          position:absolute;
+          top:16px;right:16px;
+          background:rgba(139,92,246,0.15);
+          border:1px solid var(--purple);
+          border-radius:20px;
+          padding:4px 14px;
+          font-family:var(--mono);
+          font-size:11px;
+          color:var(--purple2);
+          letter-spacing:0.06em;
+          backdrop-filter:blur(4px);
+          transition:all 0.4s;
+        }
+
+        /* ───── RESPONSIVE PATH OFFSET ───── */
+        .path-offset-1{stroke-dashoffset:0}
+        .path-offset-2{stroke-dashoffset:8}
+        .path-offset-3{stroke-dashoffset:16}
+        .path-offset-4{stroke-dashoffset:24}
+        .path-offset-5{stroke-dashoffset:32}
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <div class="logo">LAIR <span>Logistics Autonomous Intelligent Rerouting</span></div>
+    </div>
+    <div class="header-right">
+        <div class="phase-indicator" id="phase-indicator">
+            Phase <strong id="phase-num">—</strong> &nbsp;·&nbsp; Step <strong id="step-num">0</strong> of 5
+        </div>
+    </div>
+</header>
+
+<main>
+    <!-- NETWORK CANVAS -->
+    <div class="canvas-wrap">
+        <div class="phase-badge" id="phase-badge">INITIALIZE</div>
+
+        <svg id="network-svg" viewBox="0 0 900 540" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </marker>
+                <marker id="arr-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                    <path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </marker>
+                <filter id="glow-blue">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <filter id="glow-red">
+                    <feGaussianBlur stdDeviation="4" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <filter id="glow-green">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+            </defs>
+
+            <!-- EDGE LAYER -->
+            <g id="edges-layer"></g>
+
+            <!-- PATH LAYER (animated shipment paths) -->
+            <g id="paths-layer"></g>
+
+            <!-- HUB LAYER -->
+            <g id="hubs-layer"></g>
+
+            <!-- ANNOTATION LAYER -->
+            <g id="annotations-layer"></g>
+        </svg>
+
+        <!-- Floating cards -->
+        <div id="delay-card" class="info-card" style="display:none;top:20px;left:50%;transform:translateX(-50%)">
+            <div class="ic-title">⚠ DELAY DETECTED</div>
+            <div class="ic-value">Hub D1 — +20 min delay</div>
+        </div>
+        <div id="bottleneck-card" class="info-card bottleneck" style="display:none;top:20px;left:50%;transform:translateX(-50%)">
+            <div class="ic-title danger">✖ BOTTLENECK IDENTIFIED</div>
+            <div class="ic-value danger">D1 — Score: 3 · ISOLATING</div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend" id="legend">
+            <div class="legend-title">Legend</div>
+            <div class="legend-row"><div class="legend-dot" style="background:#4a5a7a;border:1px solid #6b7fa3"></div>Hub (normal)</div>
+            <div class="legend-row"><div class="legend-dot" style="background:rgba(239,68,68,0.3);border:1px solid #ef4444"></div>Bottleneck</div>
+            <div class="legend-row"><div class="legend-dot" style="background:rgba(107,127,163,0.2);border:1px dashed #6b7fa3"></div>Isolated</div>
+            <div id="legend-ships" style="display:none">
+                <div class="legend-row" style="margin-top:6px"><div class="legend-line" style="background:#3b82f6"></div>SH1</div>
+                <div class="legend-row"><div class="legend-line" style="background:#10b981"></div>SH2</div>
+                <div class="legend-row"><div class="legend-line" style="background:#f59e0b"></div>SH3</div>
+                <div class="legend-row"><div class="legend-line" style="background:#8b5cf6"></div>SH4 (phantom)</div>
+                <div class="legend-row"><div class="legend-line" style="background:#ef4444"></div>SH5 (phantom)</div>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <!-- STEP TIMELINE -->
+    <div class="timeline">
+        <button class="step-btn active" id="sbtn-0" onclick="goStep(0)">
+            <div class="step-dot" id="sdot-0">1</div>
+            <div class="step-label">Network<br>Loaded</div>
+        </button>
+        <div class="step-connector" id="sc-0"></div>
+        <button class="step-btn" id="sbtn-1" onclick="goStep(1)">
+            <div class="step-dot" id="sdot-1">2</div>
+            <div class="step-label">Shipments<br>Active</div>
+        </button>
+        <div class="step-connector" id="sc-1"></div>
+        <button class="step-btn" id="sbtn-2" onclick="goStep(2)">
+            <div class="step-dot" id="sdot-2">3</div>
+            <div class="step-label">Delay<br>Propagated</div>
+        </button>
+        <div class="step-connector" id="sc-2"></div>
+        <button class="step-btn" id="sbtn-3" onclick="goStep(3)">
+            <div class="step-dot" id="sdot-3">4</div>
+            <div class="step-label">Bottleneck<br>Isolated</div>
+        </button>
+        <div class="step-connector" id="sc-3"></div>
+        <button class="step-btn" id="sbtn-4" onclick="goStep(4)">
+            <div class="step-dot" id="sdot-4">5</div>
+            <div class="step-label">Rerouted<br>Results</div>
+        </button>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+        <div class="panel-header">
+            <div class="panel-title">System Log</div>
+            <div class="panel-subtitle" id="panel-subtitle">Initializing network…</div>
+        </div>
+
+        <div class="log-feed" id="log-feed"></div>
+
+        <!-- Shipment status -->
+        <div class="shipment-panel">
+            <div class="sp-title">Shipment Tracker</div>
+            <div id="shipment-rows">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Results (hidden until step 5) -->
+        <div class="results-panel" id="results-panel">
+            <div class="results-title">Route Comparison Results</div>
+            <div class="metric-row">
+                <div class="metric">
+                    <div class="metric-label">Total Before</div>
+                    <div class="metric-value bad" id="res-before">—</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Total After</div>
+                    <div class="metric-value good" id="res-after">—</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Savings</div>
+                    <div class="metric-value warn" id="res-savings">—</div>
+                </div>
+            </div>
+            <div id="reroute-rows"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="ctrl-bar">
+            <button class="btn" id="btn-prev" onclick="prevStep()" disabled>← Prev</button>
+            <button class="btn primary" id="btn-next" onclick="nextStep()">Next Step →</button>
+            <button class="btn" onclick="resetAll()" title="Reset">↺</button>
+        </div>
+    </div>
+</main>
+
+<script>
+    // ═══════════════════════════════════════════════════════════════
+    //  DATA MODEL — mirrors the Java backend exactly
+    // ═══════════════════════════════════════════════════════════════
+
+    const HUBS = [
+      {id:'W1', type:'WAREHOUSE'},
+      {id:'S1', type:'SORTING'},
+      {id:'S2', type:'SORTING'},
+      {id:'R1', type:'REGIONAL'},
+      {id:'R2', type:'REGIONAL'},
+      {id:'D1', type:'DISTRIBUTION'},
+      {id:'D2', type:'DISTRIBUTION'},
+      {id:'P1', type:'DELIVERY'},
+      {id:'P2', type:'DELIVERY'},
+      {id:'P3', type:'DELIVERY'},
+    ];
+
+    // SVG coords — spread out for clarity
+    const HUB_POS = {
+      W1:[90,270],
+      S1:[230,145],
+      S2:[230,400],
+      R1:[390,145],
+      R2:[390,400],
+      D1:[540,220],
+      D2:[540,350],
+      P1:[710,130],
+      P2:[710,270],
+      P3:[710,415],
+    };
+
+    const HUB_TYPE_COLOR = {
+      WAREHOUSE:'#6366f1',
+      SORTING:'#0891b2',
+      REGIONAL:'#059669',
+      DISTRIBUTION:'#d97706',
+      DELIVERY:'#db2777',
+    };
+
+    const EDGES = [
+      {from:'W1',to:'S1',w:10},
+      {from:'W1',to:'S2',w:15},
+      {from:'S1',to:'R1',w:12},
+      {from:'S1',to:'R2',w:20},
+      {from:'S2',to:'R1',w:18},
+      {from:'S2',to:'R2',w:10},
+      {from:'R1',to:'D1',w:8},
+      {from:'R2',to:'D1',w:12},
+      {from:'R1',to:'D2',w:10},
+      {from:'R2',to:'D2',w:14},
+      {from:'D1',to:'P1',w:5},
+      {from:'D1',to:'P2',w:7},
+      {from:'D1',to:'P3',w:9},
+      {from:'D2',to:'P1',w:6},
+      {from:'D2',to:'P2',w:8},
+      {from:'D2',to:'P3',w:11},
+    ];
+
+    // Shipments: id, original path, current hub, phantom (hub doesn't exist)
+    const SHIPMENTS_RAW = [
+      {id:'SH1',path:['W1','S1','R1','D1','P1'],current:'W1',color:'#3b82f6'},
+      {id:'SH2',path:['W1','S2','R2','D1','P2'],current:'R2',color:'#10b981'},
+      {id:'SH3',path:['W1','S1','R2','D1','P3'],current:'S1',color:'#f59e0b'},
+      {id:'SH4',path:['W1','S3','R3','D2','P1'],current:'D2',color:'#8b5cf6',phantom:true},
+      {id:'SH5',path:['W1','S1','R1','D1','P1'],current:'X1',color:'#ef4444',phantom:true},
+    ];
+
+    const DELAY_EVENT = {hubId:'D1', delay:20};
+    const ALPHA = 1.0, BETA = 0.5;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  STATE
+    // ═══════════════════════════════════════════════════════════════
+    let currentStep = -1;
+    let shipments = JSON.parse(JSON.stringify(SHIPMENTS_RAW));
+    let hubLoads = {};
+    let isolated = new Set();
+    let bottleneckId = null;
+    let rerouteResults = [];
+
+    // Load tracking
+    HUBS.forEach(h => hubLoads[h.id] = 0);
+    // SH2 at R2, SH3 at S1, SH4 at D2 contribute loads (phantom ones don't count)
+    shipments.forEach(s => {
+      if(!s.phantom && hubLoads[s.current]!==undefined) hubLoads[s.current]++;
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LOG SYSTEM
+    // ═══════════════════════════════════════════════════════════════
+    let logTime = 0;
+    function log(tag, msg, type='info'){
+      const feed = document.getElementById('log-feed');
+      const t = String(logTime++).padStart(3,'0');
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.innerHTML = `<span class="log-time">[${t}]</span><span class="log-tag">${tag}</span>${msg}`;
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
+    }
+    function logPhase(title){
+      const feed = document.getElementById('log-feed');
+      const div = document.createElement('div');
+      div.className = 'log-entry phase';
+      div.innerHTML = `<span class="log-tag">▸ PHASE ─ ${title}</span>`;
+      feed.appendChild(div);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SVG HELPERS
+    // ═══════════════════════════════════════════════════════════════
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    function el(tag,attrs={}){
+      const e = document.createElementNS(SVG_NS,tag);
+      for(const[k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+      return e;
+    }
+    function clearLayer(id){ document.getElementById(id).innerHTML=''; }
+
+    function hubPos(id){ return HUB_POS[id]||[0,0]; }
+
+    // Draw offset parallel line to avoid overlap for multi-shipment paths
+    function offsetLine(x1,y1,x2,y2,offset){
+      const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+      if(len===0) return {x1,y1,x2,y2};
+      const px=-dy/len*offset, py=dx/len*offset;
+      return {x1:x1+px,y1:y1+py,x2:x2+px,y2:y2+py};
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DRAW FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════
+
+    function drawEdges(highlight=new Set(), dimmed=false){
+      clearLayer('edges-layer');
+      const g = document.getElementById('edges-layer');
+
+      EDGES.forEach(edge=>{
+        const [x1,y1]=hubPos(edge.from), [x2,y2]=hubPos(edge.to);
+        const mid = {x:(x1+x2)/2,y:(y1+y2)/2};
+        const isAffected = highlight.has(edge.from)||highlight.has(edge.to);
+        const isIsolatedEdge = isolated.has(edge.from)||isolated.has(edge.to);
+
+        const line = el('line',{
+          x1,y1,x2,y2,
+          stroke: isIsolatedEdge ? '#2a3040' : isAffected ? '#4ade80' : dimmed ? '#1a2438' : '#2a3a54',
+          'stroke-width': isAffected&&!isIsolatedEdge ? 1.5 : 1,
+          'stroke-dasharray': isIsolatedEdge ? '4 4' : 'none',
+          opacity: isIsolatedEdge ? 0.4 : 1,
+          'marker-end':'url(#arr)',
+        });
+        g.appendChild(line);
+
+        // Weight label
+        const tw = el('text',{
+          x:mid.x+6, y:mid.y-6,
+          fill: isIsolatedEdge ? '#1e2d4a' : '#2a3a5e',
+          'font-family':'Space Mono,monospace',
+          'font-size':'9',
+          'text-anchor':'middle',
+        });
+        tw.textContent = edge.w;
+        g.appendChild(tw);
+      });
+    }
+
+    function drawHubs(phase='normal'){
+      clearLayer('hubs-layer');
+      const g = document.getElementById('hubs-layer');
+
+      HUBS.forEach(hub=>{
+        const [cx,cy] = hubPos(hub.id);
+        const isBottleneck = hub.id === bottleneckId && phase !== 'normal';
+        const isIsolated = isolated.has(hub.id);
+        const color = HUB_TYPE_COLOR[hub.type];
+        const load = hubLoads[hub.id]||0;
+
+        const group = el('g',{class:'hub-group'});
+
+        // Pulse ring for bottleneck
+        if(isBottleneck && phase==='isolate'){
+          const pulse = el('circle',{
+            cx,cy,r:'22',
+            fill:'none',
+            stroke:'#ef4444',
+            'stroke-width':'2',
+            opacity:'0.6',
+            class:'bottleneck-ring',
+          });
+          group.appendChild(pulse);
+        }
+
+        // Hub circle
+        const circle = el('circle',{
+          cx,cy,
+          r: isBottleneck ? '20' : '18',
+          fill: isIsolated ? 'rgba(30,45,74,0.4)' : isBottleneck ? 'rgba(239,68,68,0.25)' : `${color}22`,
+          stroke: isIsolated ? '#1e2d4a' : isBottleneck ? '#ef4444' : color,
+          'stroke-width': isBottleneck ? '2' : '1.5',
+          'stroke-dasharray': isIsolated ? '5 3' : 'none',
+          filter: isBottleneck ? 'url(#glow-red)' : phase==='reroute' ? 'none' : 'none',
+        });
+        group.appendChild(circle);
+
+        // Load indicator (small arc or dots around hub)
+        if(load > 0 && !isIsolated){
+          for(let i=0;i<Math.min(load,3);i++){
+            const angle = -90 + i*40 - (Math.min(load,3)-1)*20;
+            const rad = angle*Math.PI/180;
+            const bx = cx + 24*Math.cos(rad), by = cy + 24*Math.sin(rad);
+            const dot = el('circle',{cx:bx,cy:by,r:'3',fill:color,opacity:'0.7'});
+            group.appendChild(dot);
+          }
+        }
+
+        // Isolated X
+        if(isIsolated){
+          const x1=el('line',{x1:cx-8,y1:cy-8,x2:cx+8,y2:cy+8,stroke:'#ef4444','stroke-width':'1.5','stroke-linecap':'round'});
+          const x2=el('line',{x1:cx+8,y1:cy-8,x2:cx-8,y2:cy+8,stroke:'#ef4444','stroke-width':'1.5','stroke-linecap':'round'});
+          group.appendChild(x1);
+          group.appendChild(x2);
+        }
+
+        // Label
+        const label = el('text',{
+          x:cx, y:cy+4,
+          fill: isIsolated ? '#2a3a5a' : isBottleneck ? '#fca5a5' : '#e2e8f4',
+          'font-family':'Space Mono,monospace',
+          'font-size':'11',
+          'font-weight':'700',
+          'text-anchor':'middle',
+          'dominant-baseline':'middle',
+        });
+        label.textContent = hub.id;
+        group.appendChild(label);
+
+        // Type label below
+        const type = el('text',{
+          x:cx, y:cy+30,
+          fill: isIsolated ? '#1e2d4a' : color+'99',
+          'font-family':'Space Mono,monospace',
+          'font-size':'8',
+          'text-anchor':'middle',
+        });
+        type.textContent = hub.type.slice(0,4);
+        group.appendChild(type);
+
+        // Load badge
+        if(load>0 && !isIsolated){
+          const badge = el('text',{
+            x:cx+14,y:cy-14,
+            fill:'#f59e0b',
+            'font-family':'Space Mono,monospace',
+            'font-size':'9',
+            'font-weight':'700',
+          });
+          badge.textContent = `×${load}`;
+          group.appendChild(badge);
+        }
+
+        // Hover interactivity
+        group.style.cursor='pointer';
+        group.addEventListener('mouseenter',(e)=>{
+          showTooltip(e, hub, load, isIsolated, isBottleneck);
+        });
+        group.addEventListener('mouseleave',()=>hideTooltip());
+
+        g.appendChild(group);
+      });
+    }
+
+    function showTooltip(e, hub, load, iso, bn){
+      const tt = document.getElementById('tooltip');
+      const rect = document.getElementById('network-svg').getBoundingClientRect();
+      const x = e.clientX - rect.left + 10;
+      const y = e.clientY - rect.top + 10;
+      tt.style.left = x+'px';
+      tt.style.top = y+'px';
+      tt.innerHTML = `<strong style="color:#60a5fa">${hub.id}</strong><br>
+        Type: <span style="color:#94a3b8">${hub.type}</span><br>
+        Load: <span style="color:#fbbf24">${load} shipment(s)</span>${iso?'<br><span style="color:#f87171">● ISOLATED</span>':''}${bn?'<br><span style="color:#f87171">● BOTTLENECK</span>':''}`;
+      tt.classList.add('show');
+    }
+    function hideTooltip(){ document.getElementById('tooltip').classList.remove('show'); }
+
+    // Draw a single shipment path with offset
+    function drawShipmentPath(path, color, offset, animated=false, dashed=false){
+      const layer = document.getElementById('paths-layer');
+
+      // Collect real (existing) path segments only
+      const validPath = path.filter((h,i)=>{
+        if(!HUB_POS[h]) return false;
+        return true;
+      });
+
+      for(let i=0;i<validPath.length-1;i++){
+        const a=validPath[i], b=validPath[i+1];
+        const [ax,ay]=hubPos(a), [bx,by]=hubPos(b);
+        const off = offsetLine(ax,ay,bx,by,offset);
+
+        const line = el('line',{
+          x1:off.x1,y1:off.y1,x2:off.x2,y2:off.y2,
+          stroke:color,
+          'stroke-width': dashed ? 1.5 : 2.5,
+          'stroke-linecap':'round',
+          opacity: dashed ? 0.5 : 0.85,
+          'stroke-dasharray': dashed ? '6 4' : 'none',
+          'marker-end':'url(#arr-accent)',
+        });
+
+        if(animated){
+          line.setAttribute('stroke-dasharray','1000');
+          line.setAttribute('stroke-dashoffset','1000');
+          line.style.transition = `stroke-dashoffset ${0.6+i*0.2}s ease ${i*0.15}s`;
+          requestAnimationFrame(()=>{ line.setAttribute('stroke-dashoffset','0'); });
+        }
+
+        layer.appendChild(line);
+      }
+    }
+
+    function drawCurrentPositions(){
+      const layer = document.getElementById('annotations-layer');
+
+      shipments.forEach(s=>{
+        if(!HUB_POS[s.current]) return;
+        const [cx,cy]=hubPos(s.current);
+        const dot = el('circle',{
+          cx, cy:cy-5,
+          r:'5',
+          fill:s.color,
+          stroke:'#050810',
+          'stroke-width':'1.5',
+          opacity:'0.95',
+        });
+        layer.appendChild(dot);
+
+        // Label
+        const lbl = el('text',{
+          x:cx+8,y:cy-10,
+          fill:s.color,
+          'font-family':'Space Mono,monospace',
+          'font-size':'8',
+          'font-weight':'700',
+        });
+        lbl.textContent = s.id;
+        layer.appendChild(lbl);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DIJKSTRA — load-aware shortest path (JavaScript port)
+    // ═══════════════════════════════════════════════════════════════
+    function dijkstra(start, end, excludeHub, alpha, beta){
+      if(start===end) return [start];
+
+      const dist = {}, prev = {}, visited = new Set();
+      const pq = []; // min-heap
+
+      HUBS.forEach(h=>{ dist[h.id]=Infinity; prev[h.id]=null; });
+      dist[start]=0;
+      pq.push({id:start,cost:0});
+
+      while(pq.length){
+        pq.sort((a,b)=>a.cost-b.cost);
+        const {id:u} = pq.shift();
+        if(visited.has(u)) continue;
+        visited.add(u);
+        if(u===end) break;
+
+        const neighbors = EDGES.filter(e=>e.from===u && e.to!==excludeHub);
+        for(const edge of neighbors){
+          const v = edge.to;
+          if(visited.has(v)) continue;
+          const load = hubLoads[v]||0;
+          const cost = dist[u] + alpha*edge.w + beta*load;
+          if(cost < dist[v]){
+            dist[v]=cost;
+            prev[v]=u;
+            pq.push({id:v,cost});
+          }
+        }
+      }
+
+      if(dist[end]===Infinity) return null;
+      const path=[]; let cur=end;
+      while(cur){ path.unshift(cur); cur=prev[cur]; }
+      return path;
+    }
+
+    function computePathCost(path, alpha, beta){
+      let cost=0;
+      for(let i=0;i<path.length-1;i++){
+        const from=path[i], to=path[i+1];
+        const edge = EDGES.find(e=>e.from===from&&e.to===to);
+        if(!edge) continue;
+        cost += alpha*edge.w + beta*(hubLoads[to]||0);
+      }
+      return cost;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  BOTTLENECK SCORING
+    // ═══════════════════════════════════════════════════════════════
+    function scoreBottleneck(delayHub){
+      // Count how many shipments pass through each hub
+      const scores = {};
+      HUBS.forEach(h=>scores[h.id]=0);
+
+      shipments.forEach(s=>{
+        if(s.phantom) return;
+        s.path.forEach(hid=>{
+          if(scores[hid]!==undefined) scores[hid]++;
+        });
+      });
+
+      // Boost the delayed hub
+      scores[delayHub] = (scores[delayHub]||0) + 2;
+
+      let best=null, bestScore=-1;
+      for(const[id,sc] of Object.entries(scores)){
+        if(sc>bestScore){ bestScore=sc; best=id; }
+      }
+      return {id:best, score:bestScore};
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  STEPS
+    // ═══════════════════════════════════════════════════════════════
+
+    function step0_networkLoad(){
+      clearLayer('paths-layer');
+      clearLayer('annotations-layer');
+      isolated.clear();
+      bottleneckId=null;
+
+      document.getElementById('delay-card').style.display='none';
+      document.getElementById('bottleneck-card').style.display='none';
+      document.getElementById('results-panel').classList.remove('show');
+      document.getElementById('legend-ships').style.display='none';
+
+      setBadge('PHASE 1 · INIT','#8b5cf6');
+      setPhaseIndicator('1','1');
+
+      drawEdges();
+      drawHubs('normal');
+
+      logPhase('1 — Graph Construction');
+      log('GRAPH','LogisticsGraph initialized','info');
+      HUBS.forEach((h,i)=>setTimeout(()=>{
+        log('HUB',`addHub(${h.id}) → type=${h.type}`,'info');
+      },i*80));
+      setTimeout(()=>{
+        EDGES.forEach((e,i)=>setTimeout(()=>{
+          log('EDGE',`addEdge(${e.from}→${e.to}) w=${e.w}`,'info');
+        },i*30));
+      },HUBS.length*80);
+
+      setTimeout(()=>{
+        log('HEAP','Priority queue initialized (min-heap)','info');
+        log('GRAPH',`${HUBS.length} hubs, ${EDGES.length} directed edges loaded`,'success');
+      },HUBS.length*80+EDGES.length*30+100);
+
+      setSubtitle('Graph constructed · 10 hubs · 16 edges');
+      updateShipmentTracker();
+    }
+
+    function step1_shipmentsActive(){
+      clearLayer('paths-layer');
+      clearLayer('annotations-layer');
+
+      document.getElementById('legend-ships').style.display='block';
+      setBadge('PHASE 1 · SHIPMENTS','#06b6d4');
+      setPhaseIndicator('1','2');
+
+      // Update loads
+      hubLoads = {};
+      HUBS.forEach(h=>hubLoads[h.id]=0);
+      shipments.forEach(s=>{
+        if(!s.phantom && hubLoads[s.current]!==undefined){
+          hubLoads[s.current]++;
+        }
+      });
+
+      drawEdges();
+      drawHubs('normal');
+
+      logPhase('1 — Shipment Registration');
+
+      const offsets = [-6,-2,2,6,10];
+      shipments.forEach((s,i)=>{
+        setTimeout(()=>{
+          const isPhantom = s.phantom;
+          // Only draw paths for known hubs
+          const realPath = s.path.filter(h=>HUB_POS[h]);
+          drawShipmentPath(realPath, s.color, offsets[i], true, isPhantom);
+          drawHubs('normal');
+
+          if(isPhantom){
+            log('SHIPMENT',`${s.id} registered — phantom nodes detected! Current: ${s.current} (unknown)`, 'warn');
+          } else {
+            log('SHIPMENT',`${s.id} active · pos:${s.current} → ${s.path[s.path.length-1]}`, 'info');
+          }
+
+          // Draw current positions after all paths
+          if(i===shipments.length-1){
+            setTimeout(()=>{
+              drawCurrentPositions();
+              log('LOAD',`Hub loads: R2:1 S1:1 D2:1 (load-aware routing active)`,'info');
+            },400);
+          }
+        }, i*300);
+      });
+
+      setSubtitle('Shipments registered · tracking positions');
+      setTimeout(()=>updateShipmentTracker(),shipments.length*300+500);
+    }
+
+    function step2_delayPropagated(){
+      document.getElementById('delay-card').style.display='block';
+      setBadge('PHASE 2 · DELAY','#f59e0b');
+      setPhaseIndicator('2','3');
+
+      drawEdges(new Set(['D1']));
+      drawHubs('delay');
+
+      logPhase('2 — Delay Detection & Propagation');
+      log('EVENT',`DelayEvent{hubId:'D1', delay:20}`, 'warn');
+      log('DELAY','Propagating delay across downstream shipments…', 'warn');
+
+      // Propagate to each shipment that passes through D1
+      shipments.forEach((s,i)=>{
+        setTimeout(()=>{
+          if(!s.phantom && s.path.includes('D1')){
+            const idx = s.path.indexOf('D1');
+            log('PROP',`${s.id} affected — D1 at hop ${idx} of path`, 'warn');
+            s.status = 'delayed';
+          }
+        }, i*200+300);
+      });
+
+      // Bottleneck scoring
+      setTimeout(()=>{
+        log('SCORE','Computing hub impact scores (max-heap)…','info');
+        const scores = {};
+        HUBS.forEach(h=>scores[h.id]=0);
+        shipments.forEach(s=>{
+          if(!s.phantom){
+            s.path.forEach(hid=>{
+              if(scores[hid]!==undefined) scores[hid]++;
+            });
+          }
+        });
+        scores['D1']+=2; // delay boost
+
+        Object.entries(scores).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([id,sc])=>{
+          log('SCORE',`  ${id}: ${sc} pts`, 'info');
+        });
+
+        log('BOTTLENECK',`D1 identified — score:${scores['D1']}, highest impact`,'danger');
+        bottleneckId='D1';
+        setSubtitle('Delay propagated · D1 flagged as bottleneck');
+        updateShipmentTracker();
+      },shipments.length*200+800);
+    }
+
+    function step3_bottleneckIsolated(){
+      document.getElementById('delay-card').style.display='none';
+      document.getElementById('bottleneck-card').style.display='block';
+      setBadge('PHASE 2 · ISOLATE','#ef4444');
+      setPhaseIndicator('2','4');
+
+      bottleneckId='D1';
+      isolated.add('D1');
+
+      // Remove all edges to/from D1
+      drawEdges(new Set(), false);
+      drawHubs('isolate');
+
+      logPhase('2 — Bottleneck Isolation');
+      log('ISOLATE',`Isolating hub D1…`,'danger');
+      log('EDGE',`removeEdgesOf('D1') — clearing all 5 connected edges`,'danger');
+
+      // Show which shipments are now broken
+      shipments.forEach(s=>{
+        if(!s.phantom && s.path.includes('D1')){
+          log('AFFECTED',`${s.id} path severed — reroute required`,'danger');
+          s.status='severed';
+        }
+      });
+
+      setTimeout(()=>{
+        log('HEAP','Load-aware Dijkstra ready for rerouting','success');
+        log('PARAM',`α(travel)=1.0  β(load)=0.5`,'info');
+        setSubtitle('D1 isolated · Dijkstra ready for rerouting');
+        updateShipmentTracker();
+      },800);
+    }
+
+    function step4_rerouted(){
+      clearLayer('paths-layer');
+      clearLayer('annotations-layer');
+      document.getElementById('bottleneck-card').style.display='none';
+      document.getElementById('results-panel').classList.add('show');
+
+      setBadge('PHASE 3 · REROUTE','#10b981');
+      setPhaseIndicator('3','5');
+
+      logPhase('3 — Load-Aware Dijkstra Rerouting');
+      log('DIJKSTRA','Running heap-based priority queue…','info');
+
+      rerouteResults=[];
+      let totalBefore=0, totalAfter=0;
+
+      const offsets=[-6,-2,2,6,10];
+
+      shipments.forEach((s,i)=>{
+        setTimeout(()=>{
+          if(s.phantom){
+            log('SKIP',`${s.id} — phantom path, status: FAILED`,'danger');
+            s.status='failed';
+            updateShipmentTracker();
+            return;
+          }
+
+          const origin = s.path[0];
+          const dest = s.path[s.path.length-1];
+          const oldCost = computePathCost(s.path, ALPHA, BETA);
+          totalBefore += oldCost;
+
+          // Reroute avoiding D1
+          const newPath = dijkstra(origin, dest, 'D1', ALPHA, BETA);
+
+          if(!newPath){
+            log('FAIL',`${s.id} — no valid path found!`,'danger');
+            s.status='failed';
+          } else {
+            const newCost = computePathCost(newPath, ALPHA, BETA);
+            totalAfter += newCost;
+            const pct = oldCost>0 ? ((oldCost-newCost)/oldCost*100).toFixed(1) : '0.0';
+
+            rerouteResults.push({
+              id:s.id, color:s.color,
+              oldPath:s.path, newPath,
+              oldCost:oldCost.toFixed(1), newCost:newCost.toFixed(1), pct
+            });
+
+            const pathStr = newPath.join('→');
+            log('REROUTE',`${s.id}: ${pathStr}`,'success');
+            log('COST',`  ${oldCost.toFixed(1)} → ${newCost.toFixed(1)} (${pct>0?'-':''}${pct}%)`,
+              Number(pct)>0?'success':'info');
+
+            s.path = newPath;
+            s.status='rerouted';
+
+            // Draw new path
+            drawShipmentPath(newPath, s.color, offsets[i], true, false);
+            drawHubs('reroute');
+          }
+
+          updateShipmentTracker();
+
+          // After all reroutes, show results
+          if(i===shipments.length-1){
+            setTimeout(()=>{
+              drawCurrentPositions();
+              showResults(totalBefore, totalAfter);
+              log('DONE',`Pipeline complete. Total: ${totalBefore.toFixed(1)} → ${totalAfter.toFixed(1)}`,'success');
+              setSubtitle('All shipments rerouted · see results →');
+            },600);
+          }
+        }, i*500 + 200);
+      });
+    }
+
+    function showResults(before, after){
+      const savings = ((before-after)/before*100).toFixed(1);
+      document.getElementById('res-before').textContent = before.toFixed(1)+'m';
+      document.getElementById('res-after').textContent = after.toFixed(1)+'m';
+      document.getElementById('res-savings').textContent = savings+'%';
+
+      const rrDiv = document.getElementById('reroute-rows');
+      rrDiv.innerHTML = '';
+      rerouteResults.forEach(r=>{
+        const row = document.createElement('div');
+        row.className='reroute-row';
+        const pct = parseFloat(r.pct);
+        row.innerHTML=`
+          <span class="rr-id" style="color:${r.color}">${r.id}</span>
+          <span class="rr-old">${r.oldCost}m</span>
+          <span class="rr-arrow">→</span>
+          <span class="rr-new">${r.newCost}m</span>
+          <span class="rr-pct" style="color:${pct>0?'#34d399':pct<0?'#f87171':'#6b7fa3'}">${pct>0?'-'+r.pct:'±0'}%</span>
+        `;
+        rrDiv.appendChild(row);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  STEP MANAGER
+    // ═══════════════════════════════════════════════════════════════
+    const STEP_FNS = [step0_networkLoad, step1_shipmentsActive, step2_delayPropagated, step3_bottleneckIsolated, step4_rerouted];
+
+    function goStep(n){
+      if(n < 0 || n > 4) return;
+
+      // Reset to 0 then fast-forward
+      if(n < currentStep){
+        resetAll();
+        for(let i=0;i<=n;i++) setTimeout(()=>_executeStep(i), i*50);
+        return;
+      }
+
+      for(let i=currentStep+1;i<=n;i++){
+        setTimeout(()=>_executeStep(i), (i-currentStep-1)*100);
+      }
+    }
+
+    function _executeStep(n){
+      currentStep=n;
+      STEP_FNS[n]();
+      updateStepUI();
+    }
+
+    function nextStep(){ if(currentStep<4) goStep(currentStep+1); }
+    function prevStep(){ if(currentStep>0) goStep(currentStep-1); }
+
+    function updateStepUI(){
+      for(let i=0;i<=4;i++){
+        const btn=document.getElementById(`sbtn-${i}`);
+        const dot=document.getElementById(`sdot-${i}`);
+        const con=document.getElementById(`sc-${i}`);
+        btn.classList.remove('active','done');
+        if(i<currentStep){ btn.classList.add('done'); dot.textContent='✓'; }
+        else if(i===currentStep){ btn.classList.add('active'); dot.textContent=i+1; }
+        else { dot.textContent=i+1; }
+        if(con) con.classList.toggle('done', i<currentStep);
+      }
+      document.getElementById('btn-prev').disabled = currentStep<=0;
+      document.getElementById('btn-next').disabled = currentStep>=4;
+    }
+
+    function resetAll(){
+      currentStep=-1;
+      shipments=JSON.parse(JSON.stringify(SHIPMENTS_RAW));
+      hubLoads={};
+      HUBS.forEach(h=>hubLoads[h.id]=0);
+      shipments.forEach(s=>{
+        if(!s.phantom && hubLoads[s.current]!==undefined) hubLoads[s.current]++;
+      });
+      isolated.clear();
+      bottleneckId=null;
+      rerouteResults=[];
+      document.getElementById('log-feed').innerHTML='';
+      document.getElementById('delay-card').style.display='none';
+      document.getElementById('bottleneck-card').style.display='none';
+      document.getElementById('results-panel').classList.remove('show');
+      clearLayer('paths-layer');
+      clearLayer('annotations-layer');
+      drawEdges();
+      drawHubs('normal');
+      setBadge('INITIALIZE','#6b7fa3');
+      setSubtitle('Initializing network…');
+      setPhaseIndicator('—','0');
+      updateStepUI();
+      updateShipmentTracker();
+    }
+
+    function updateShipmentTracker(){
+      const rows = document.getElementById('shipment-rows');
+      rows.innerHTML='';
+      shipments.forEach(s=>{
+        const status = s.phantom ? 'failed' : (s.status||'active');
+        const statusLabel = {
+          active:'ACTIVE', delayed:'DELAYED', severed:'SEVERED',
+          rerouted:'REROUTED', failed:'FAILED', delivered:'DELIVERED'
+        }[status]||status.toUpperCase();
+
+        const realPath = s.path.filter(h=>HUB_POS[h]);
+        const pathStr = realPath.join('→');
+
+        const cost = realPath.length>1 ? computePathCost(realPath,ALPHA,BETA).toFixed(0) : '—';
+
+        const row = document.createElement('div');
+        row.className='shipment-row';
+        row.innerHTML=`
+          <div class="sh-dot" style="background:${s.color}"></div>
+          <div class="sh-id" style="color:${s.color}">${s.id}</div>
+          <div class="sh-path" title="${pathStr}">${pathStr}</div>
+          <div class="sh-cost">${cost}m</div>
+          <div class="sh-status ${status==='rerouted'?'rerouted':status==='failed'?'failed':status==='active'?'active':'delivered'}">${statusLabel}</div>
+        `;
+        rows.appendChild(row);
+      });
+    }
+
+    function setBadge(text, color){
+      const b = document.getElementById('phase-badge');
+      b.textContent=text;
+      b.style.borderColor=color;
+      b.style.color=color;
+      b.style.background=color+'18';
+    }
+    function setSubtitle(t){ document.getElementById('panel-subtitle').textContent=t; }
+    function setPhaseIndicator(phase, step){
+      document.getElementById('phase-num').textContent=phase;
+      document.getElementById('step-num').textContent=step;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  INIT
+    // ═══════════════════════════════════════════════════════════════
+    window.addEventListener('load',()=>{
+      drawEdges();
+      drawHubs('normal');
+      updateShipmentTracker();
+      log('SYS','LAIR system ready. Press "Next Step" to begin.','info');
+      log('SYS',`Network: ${HUBS.length} hubs, ${EDGES.length} routes, ${SHIPMENTS_RAW.length} shipments`,'info');
+    });
+</script>
+</body>
+</html>
