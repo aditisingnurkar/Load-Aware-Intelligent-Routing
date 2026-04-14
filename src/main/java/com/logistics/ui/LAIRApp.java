@@ -81,7 +81,7 @@ public class LAIRApp extends Application {
         root.setRight(statsPanel);
 
         Scene scene = new Scene(root, 1200, 750);
-        primaryStage.setTitle("LAIR - Logistics AI Rerouter");
+        primaryStage.setTitle("LAIR - Load-Aware-Intelligent-Rerouter");
         primaryStage.setScene(scene);
         primaryStage.show();
 
