@@ -3,11 +3,15 @@ package com.logistics.model;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents a shipment moving through the network.
+ * Keeps track of planned path and current position separately.
+ */
 public class Shipment {
 
     private final String id;
-    private List<String> path;          // planned or rerouted path
-    private String currentHub;          // REAL position (independent of path)
+    private List<String> path;       // planned or rerouted path
+    private String currentHub;       // actual current position
     private ShipmentStatus status;
 
     public Shipment(String id, List<String> path) {
@@ -17,8 +21,7 @@ public class Shipment {
         this.status = ShipmentStatus.ACTIVE;
     }
 
-    // ─── CURRENT POSITION ─────────────────────────────
-
+    // Current position of the shipment
     public String getCurrentHub() {
         return currentHub;
     }
@@ -27,28 +30,25 @@ public class Shipment {
         this.currentHub = hubId;
     }
 
-    // ─── PATH MANAGEMENT ─────────────────────────────
-
+    // Planned path (can change after rerouting)
     public List<String> getPath() {
         return path;
     }
 
+    // Update route without changing current position
     public void updatePath(List<String> newPath) {
         this.path = new ArrayList<>(newPath);
-        // DO NOT reset currentHub
     }
 
     public String getDestination() {
-        if (path == null || path.isEmpty()) return null;
+        if (path.isEmpty()) return null;
         return path.get(path.size() - 1);
     }
 
     public String getOrigin() {
-        if (path == null || path.isEmpty()) return null;
+        if (path.isEmpty()) return null;
         return path.get(0);
     }
-
-    // ─── STATUS ─────────────────────────────
 
     public void setStatus(ShipmentStatus status) {
         this.status = status;

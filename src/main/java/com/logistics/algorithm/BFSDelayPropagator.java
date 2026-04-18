@@ -6,6 +6,10 @@ import com.logistics.model.Edge;
 
 import java.util.*;
 
+/**
+ * Propagates delay through the network using BFS-style traversal.
+ * Delay accumulates along edges and keeps the maximum impact.
+ */
 public class BFSDelayPropagator {
 
     private Map<String, Integer> delayMap;
@@ -14,16 +18,16 @@ public class BFSDelayPropagator {
         this.delayMap = new HashMap<>();
     }
 
-    // Master method — runs full BFS propagation and returns the delay map
+    // Run delay propagation starting from the event source
     public Map<String, Integer> propagate(LogisticsGraph graph, DelayEvent event) {
         delayMap.clear();
-        initQueue(graph, event.getHubId(), event.getDelay());
+        propagateFromSource(graph, event.getHubId(), event.getDelay());
         return delayMap;
     }
 
-    // Seeds the BFS queue with the source hub and fans out downstream
-    private void initQueue(LogisticsGraph graph, String sourceId, int initialDelay) {
-        Queue<String> queue = new LinkedList<>();
+    // BFS traversal with delay accumulation
+    private void propagateFromSource(LogisticsGraph graph, String sourceId, int initialDelay) {
+        Queue<String> queue = new ArrayDeque<>();
 
         delayMap.put(sourceId, initialDelay);
         queue.offer(sourceId);
@@ -43,14 +47,16 @@ public class BFSDelayPropagator {
         }
     }
 
-    // Max-delay rule: only update and re-queue if we found a worse delay
-    public void relaxNeighbour(Queue<String> queue, String next, int currentDelay, int travelTime) {
+    // Update delay only if we found a worse (higher) delay
+    private void relaxNeighbour(Queue<String> queue, String next,
+                                int currentDelay, int travelTime) {
+
         int newDelay = currentDelay + travelTime;
         int existingDelay = delayMap.getOrDefault(next, -1);
 
         if (newDelay > existingDelay) {
             delayMap.put(next, newDelay);
-            queue.offer(next); // re-queue because delay increased
+            queue.offer(next);
         }
     }
 

@@ -6,6 +6,10 @@ import com.logistics.model.Edge;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Union-Find structure to track connectivity between hubs.
+ * Used to check if two hubs are still reachable after isolation.
+ */
 public class UnionFind {
 
     private final Map<String, String> parent;
@@ -16,19 +20,21 @@ public class UnionFind {
         this.rank = new HashMap<>();
     }
 
+    // Build connected components from graph
     public void build(LogisticsGraph graph) {
         parent.clear();
         rank.clear();
 
-        // initialise every hub as its own component
+        // Initialize each hub as its own parent
         for (String hubId : graph.getAllHubIds()) {
             parent.put(hubId, hubId);
             rank.put(hubId, 0);
         }
 
-        // union all edges — this is what was missing
+        // Union all non-isolated edges
         for (String hubId : graph.getAllHubIds()) {
             if (graph.isIsolated(hubId)) continue;
+
             for (Edge edge : graph.getNeighbours(hubId)) {
                 if (!graph.isIsolated(edge.getTo())) {
                     union(hubId, edge.getTo());
@@ -37,17 +43,22 @@ public class UnionFind {
         }
     }
 
+    // Find root with path compression
     public String find(String hubId) {
         if (!parent.containsKey(hubId)) return null;
+
         if (!parent.get(hubId).equals(hubId)) {
             parent.put(hubId, find(parent.get(hubId)));
         }
+
         return parent.get(hubId);
     }
 
+    // Union by rank
     public void union(String a, String b) {
         String rootA = find(a);
         String rootB = find(b);
+
         if (rootA == null || rootB == null || rootA.equals(rootB)) return;
 
         int rankA = rank.get(rootA);
@@ -63,10 +74,13 @@ public class UnionFind {
         }
     }
 
+    // Check if two hubs are in same component
     public boolean connected(String a, String b) {
         String rootA = find(a);
         String rootB = find(b);
+
         if (rootA == null || rootB == null) return false;
+
         return rootA.equals(rootB);
     }
 }

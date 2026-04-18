@@ -5,6 +5,9 @@ import com.logistics.model.RerouteResult;
 
 import java.util.List;
 
+/**
+ * Handles formatted console output for simulation results.
+ */
 public class OutputFormatter {
 
     public void printHeader() {
@@ -36,43 +39,55 @@ public class OutputFormatter {
                     String.join(" -> ", r.getOriginalPath()));
             System.out.println("  Rerouted     : " +
                     String.join(" -> ", r.getPath()));
-            System.out.printf ("  Old Cost     : %.1f%n", r.getOldCost());
-            System.out.printf ("  New Cost     : %.1f%n", r.getNewCost());
-            if (r.getNewCost() <= r.getOldCost()) {
+
+            System.out.printf("  Old Cost     : %.1f%n", r.getOldCost());
+            System.out.printf("  New Cost     : %.1f%n", r.getNewCost());
+
+            if (r.getOldCost() == 0) {
+                System.out.println("  Improvement  : N/A");
+            } else if (r.getNewCost() <= r.getOldCost()) {
                 System.out.printf("  Improvement  : %.1f%%%n",
                         r.getDelayReductionPercent());
             } else {
-                double increase = ((r.getNewCost() - r.getOldCost())
-                        / r.getOldCost()) * 100;
+                double increase =
+                        ((r.getNewCost() - r.getOldCost()) / r.getOldCost()) * 100;
                 System.out.printf("  Cost increase: %.1f%% (best available)%n",
                         increase);
             }
+
             System.out.println("-".repeat(60));
         }
     }
-
 
     public void printDelayReduction(double before, double after) {
         System.out.println("\n[TOTAL COST SUMMARY]");
         System.out.printf("  Original route cost : %.1f%n", before);
         System.out.printf("  Rerouted cost       : %.1f%n", after);
+
+        if (before == 0) {
+            System.out.println("  Improvement         : N/A");
+            return;
+        }
+
         if (after <= before) {
             double percent = ((before - after) / before) * 100;
             System.out.printf("  Improvement         : %.1f%%%n", percent);
         } else {
             double percent = ((after - before) / before) * 100;
-            System.out.printf("  Cost increase       : %.1f%% " +
-                    "(best available reroute around isolated hub)%n", percent);
+            System.out.printf("  Cost increase       : %.1f%% (best available)%n",
+                    percent);
         }
     }
 
     public void printLoadMap(LogisticsGraph graph) {
         System.out.println("\n[FINAL HUB LOAD MAP]");
         System.out.println("-".repeat(30));
+
         for (String hubId : graph.getAllHubIds()) {
             System.out.printf("  %-10s : %d shipments%n",
                     hubId, graph.getLoad(hubId));
         }
+
         System.out.println("=".repeat(60));
     }
 }
