@@ -17,6 +17,8 @@ public class SimulationEngine {
 
     private final Map<String, Double> preIsolationCosts = new HashMap<>();
     private final Map<String, Double> originalCosts     = new HashMap<>();
+    // Stores delay propagation result from Phase 2 so Phase 3 can include delay in costs
+    private Map<String, Integer> propagatedDelayMap = new HashMap<>();
 
     private Map<String, List<String>> mainPaths = new HashMap<>();
 
@@ -58,7 +60,7 @@ public class SimulationEngine {
 
         this.delayEvent = event;
 
-        Map<String, Integer> delayMap =
+        this.propagatedDelayMap =
                 new BFSDelayPropagator().propagate(graph, event);
 
         System.out.println("[Phase 2] Delay propagated from hub: "
@@ -66,15 +68,16 @@ public class SimulationEngine {
 
         BottleneckDetector detector = new BottleneckDetector();
 
-        bottleneckId = detector.detect(graph, delayMap, manager.getAll());
+        bottleneckId = detector.detect(graph, propagatedDelayMap, manager.getAll());
         bottleneckScore = detector.getBottleneckScore();
 
         System.out.println("[Phase 2] Bottleneck detected: "
                 + bottleneckId + " (score=" + bottleneckScore + ")");
 
-        // compute baseline costs before isolation
+        // compute baseline costs (travel + load + delay) before isolation
         for (Shipment s : manager.getAll()) {
-            double cost = computePathCost(s.getPath(), 0, ALPHA, BETA);
+            double cost = computePathCost(s.getPath(), 0, ALPHA, BETA)
+                    + sumDelayOnPath(s.getPath(), propagatedDelayMap);
             originalCosts.put(s.getId(), cost);
         }
 
@@ -153,7 +156,8 @@ public class SimulationEngine {
             manager.commitLoads(graph, newPath);
             s.updatePath(newPath);
 
-            double newCost = computePathCost(newPath, 0, alpha, beta);
+            double newCost = computePathCost(newPath, 0, alpha, beta)
+                    + sumDelayOnPath(newPath, propagatedDelayMap);
 
             results.add(new RerouteResult(
                     s.getId(),
@@ -239,4 +243,16 @@ public class SimulationEngine {
 
         return cost;
     }
+
+    // Sum the propagated delay values for every hub on a path.
+    // Hubs not in the delayMap were not reached by the propagation, so they contribute 0.
+    private double sumDelayOnPath(List<String> path, Map<String, Integer> delayMap) {
+        if (delayMap == null || delayMap.isEmpty()) return 0.0;
+        double total = 0.0;
+        for (String hubId : path) {
+            total += delayMap.getOrDefault(hubId, 0);
+        }
+        return total;
+    }
 }
+
