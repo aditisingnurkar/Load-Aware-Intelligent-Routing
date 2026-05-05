@@ -104,7 +104,7 @@ public class SimulationEngine {
         for (Shipment s : affected) {
 
             String dest = s.getDestination();
-            if (mainPaths.containsKey(dest)) continue;
+            if (mainPaths.containsKey(dest) && !mainPaths.get(dest).isEmpty()) continue;
 
             String start = s.getOrigin();
             if (graph.isIsolated(start)) {
@@ -114,7 +114,7 @@ public class SimulationEngine {
             List<String> mainPath =
                     dijkstra.computeMainPath(graph, start, dest, alpha, beta);
 
-            mainPaths.put(dest, mainPath);
+            if (!mainPath.isEmpty()) mainPaths.put(dest, mainPath);
         }
 
         // process shipments
@@ -123,16 +123,19 @@ public class SimulationEngine {
             String current = s.getCurrentHub();
             String dest = s.getDestination();
 
+            //case 1
             if (current.equals(dest)) {
                 s.setStatus(ShipmentStatus.DELIVERED);
                 continue;
             }
 
+            //case 2
             if (!uf.connected(current, dest)) {
                 s.setStatus(ShipmentStatus.FAILED);
                 continue;
             }
 
+            //case 3
             List<String> mainPath = mainPaths.get(dest);
 
             if (mainPath == null || mainPath.isEmpty()) {
@@ -140,6 +143,7 @@ public class SimulationEngine {
                 continue;
             }
 
+            //case 4
             List<String> originalPath = new ArrayList<>(s.getPath());
             double oldCost = originalCosts.getOrDefault(s.getId(), 0.0);
 
@@ -255,4 +259,3 @@ public class SimulationEngine {
         return total;
     }
 }
-
